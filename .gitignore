@@ -1,0 +1,10 @@
+myenv/
+.tea/
+.DS_Store
+*.log
+server.log
+*.zip
+.vscode/
+.idea/
+__pycache__/
+*.pyc

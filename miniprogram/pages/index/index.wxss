@@ -1,0 +1,792 @@
+/* pages/index/index.wxss */
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f5f5f5;
+}
+
+/* 聊天区域 */
+.chat-area {
+  flex: 1;
+  padding: 20rpx;
+  overflow-y: auto;
+}
+
+.message-item {
+  margin-bottom: 30rpx;
+  display: flex;
+}
+
+.user-message {
+  justify-content: flex-end;
+}
+
+.ai-message {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 80%;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  word-wrap: break-word;
+}
+
+.user-message .message-content {
+  background: #07c160;
+  color: white;
+}
+
+.ai-message .message-content {
+  background: white;
+  color: #333;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.1);
+}
+
+.uploaded-image {
+  max-width: 400rpx;
+  border-radius: 10rpx;
+}
+
+.generated-image {
+  width: 100%;
+  max-width: 500rpx;
+  border-radius: 10rpx;
+  margin-bottom: 10rpx;
+}
+
+.image-caption {
+  font-size: 26rpx;
+  color: #666;
+  display: block;
+}
+
+.uploaded-video {
+  width: 400rpx;
+  height: 300rpx;
+  border-radius: 10rpx;
+}
+
+.file-message {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.file-icon {
+  font-size: 60rpx;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name {
+  font-size: 28rpx;
+  font-weight: bold;
+}
+
+.file-size {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* ========== 输入区域（黄色背景）========== */
+.input-area {
+  background: #fef7e0;
+  padding: 20rpx 20rpx 10rpx 20rpx;
+  position: relative;
+  border-radius: 20rpx 20rpx 0 0;
+}
+
+/* 第一行：图标区域 */
+.icon-row {
+  display: flex;
+  gap: 30rpx;
+  align-items: center;
+  margin-bottom: 15rpx;
+  padding-left: 10rpx;
+}
+
+.icon-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.8);
+}
+
+.icon-btn .icon {
+  font-size: 32rpx;
+}
+
+/* 第二行：输入区域 + 发送按钮 */
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12rpx;
+}
+
+/* 输入框容器 */
+.input-container {
+  flex: 1;
+  background: white;
+  border-radius: 30rpx;
+  padding: 12rpx 20rpx;
+  border: 1rpx solid #e6d5a8;
+}
+
+.message-input {
+  width: 100%;
+  min-height: 70rpx;
+  max-height: 200rpx;
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+
+.placeholder {
+  color: #ccc;
+  font-size: 28rpx;
+}
+
+/* 发送按钮 */
+.send-btn {
+  width: 72rpx;
+  height: 72rpx;
+  background: #07c160;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(7,193,96,0.3);
+}
+
+.send-icon {
+  font-size: 40rpx;
+  color: white;
+  font-weight: bold;
+}
+
+/* Agent 按钮区域 */
+.agent-buttons {
+  display: flex;
+  gap: 20rpx;
+  padding: 15rpx 20rpx;
+  background: white;
+  border-top: 1rpx solid #eee;
+}
+
+.agent-btn {
+  flex: 1;
+  font-size: 26rpx;
+  padding: 16rpx 0;
+  background: #f0f0f0;
+  color: #666;
+  border: none;
+  border-radius: 60rpx;
+  text-align: center;
+}
+
+.agent-btn.active {
+  background: #07c160;
+  color: white;
+}
+
+/* 历史记录浮层 */
+.history-popup {
+  position: absolute;
+  bottom: 100%;
+  left: 20rpx;
+  right: 20rpx;
+  background: white;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.15);
+  margin-bottom: 10rpx;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.history-title {
+  padding: 20rpx;
+  font-size: 26rpx;
+  color: #999;
+  border-bottom: 1rpx solid #eee;
+}
+
+.history-list {
+  max-height: 400rpx;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.history-text {
+  font-size: 28rpx;
+  color: #333;
+}
+
+/* 加载动画 */
+.loading-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  background: white;
+  border-radius: 20rpx;
+  margin: 20rpx;
+  gap: 20rpx;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 10rpx;
+}
+
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  background: #07c160;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.dot:nth-child(1) { animation-delay: -0.32s; }
+.dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.loading-text {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 文件上传弹窗 */
+.upload-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.upload-modal.show {
+  visibility: visible;
+  opacity: 1;
+}
+
+.upload-modal-content {
+  width: 85%;
+  background: white;
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.upload-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: bold;
+}
+
+.close-btn {
+  width: 50rpx;
+  height: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #999;
+}
+
+.upload-drag-area {
+  margin: 40rpx;
+  padding: 60rpx 40rpx;
+  background: #f8f9fa;
+  border: 2rpx dashed #ddd;
+  border-radius: 20rpx;
+  text-align: center;
+}
+
+.upload-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.upload-text {
+  font-size: 28rpx;
+  color: #666;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.upload-tip {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+}
+
+.upload-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  padding: 0 40rpx 40rpx 40rpx;
+}
+
+.upload-btn {
+  flex: 1;
+  min-width: 30%;
+  background: #07c160;
+  color: white;
+  font-size: 26rpx;
+  border-radius: 60rpx;
+  padding: 20rpx 0;
+}
+/* ========== 对话管理栏样式 ========== */
+.session-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  background: linear-gradient(135deg, #07c160, #059e4a);
+  color: white;
+}
+
+.session-selector {
+  display: flex;
+  align-items: center;
+  gap: 15rpx;
+  padding: 10rpx 20rpx;
+  background: rgba(255,255,255,0.2);
+  border-radius: 40rpx;
+}
+
+.session-name {
+  font-size: 28rpx;
+  font-weight: bold;
+  max-width: 400rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arrow {
+  font-size: 24rpx;
+}
+
+.new-chat-btn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+}
+
+.new-chat-btn .icon {
+  font-size: 32rpx;
+}
+
+/* ========== 对话列表弹窗 ========== */
+.session-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.session-modal.show {
+  visibility: visible;
+  opacity: 1;
+}
+
+.session-modal-content {
+  width: 85%;
+  max-height: 70%;
+  background: white;
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.session-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: bold;
+}
+
+.close-btn {
+  width: 50rpx;
+  height: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: #999;
+}
+
+.session-list {
+  max-height: 500rpx;
+  overflow-y: auto;
+}
+
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.session-item.active {
+  background: #e8f5e9;
+}
+
+.session-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.session-name {
+  font-size: 30rpx;
+  color: #333;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-time {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
+  display: block;
+}
+
+.delete-btn {
+  font-size: 36rpx;
+  padding: 10rpx;
+  opacity: 0.6;
+}
+
+.delete-btn:active {
+  opacity: 1;
+}
+
+.empty-sessions {
+  padding: 60rpx;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* ========== 消息时间样式 ========== */
+.message-time {
+  display: block;
+  font-size: 20rpx;
+  color: rgba(255,255,255,0.6);
+  margin-top: 8rpx;
+  text-align: right;
+}
+
+.ai-message .message-time {
+  color: #999;
+}
+
+/* ========== 导出按钮样式 ========== */
+.icon-row .icon-btn:active {
+  transform: scale(0.95);
+  background: rgba(255,255,255,0.9);
+}
+/* ========== 多选模式样式 ========== */
+
+/* 选中状态高亮 */
+.message-item.selected .message-content {
+  background: #e8f5e9 !important;
+  border: 2rpx solid #07c160;
+  box-shadow: 0 0 10rpx rgba(7, 193, 96, 0.3);
+}
+
+.user-message.selected .message-content {
+  background: #c8e6d9 !important;
+}
+
+/* 勾选框样式 */
+.checkbox-area {
+  display: inline-flex;
+  margin-right: 15rpx;
+  vertical-align: middle;
+}
+
+.checkbox {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid #07c160;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  font-size: 24rpx;
+  color: white;
+}
+
+.checkbox.checked {
+  background: #07c160;
+  color: white;
+}
+
+/* 多选模式底部工具栏 */
+.select-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1rpx solid #eee;
+  padding: 20rpx 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+  box-shadow: 0 -4rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.select-info {
+  font-size: 28rpx;
+  color: #07c160;
+  font-weight: bold;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 30rpx;
+}
+
+.toolbar-btn {
+  padding: 15rpx 30rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+}
+
+.toolbar-btn.cancel {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.toolbar-btn.save {
+  background: #07c160;
+  color: white;
+}
+
+/* ========== 保存弹窗样式 ========== */
+.save-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.3s;
+}
+
+.save-modal.show {
+  visibility: visible;
+  opacity: 1;
+}
+
+.save-modal-content {
+  width: 85%;
+  background: white;
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.save-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: bold;
+}
+
+.save-form {
+  padding: 30rpx;
+}
+
+.form-item {
+  margin-bottom: 30rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 15rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 10rpx;
+  font-size: 28rpx;
+  background: #f8f8f8;
+}
+
+.file-ext {
+  display: inline-block;
+  margin-left: 10rpx;
+  font-size: 28rpx;
+  color: #999;
+}
+
+.path-selector {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 10rpx;
+  background: #f8f8f8;
+}
+
+.path-text {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.path-arrow {
+  font-size: 32rpx;
+}
+
+.save-modal-footer {
+  display: flex;
+  border-top: 1rpx solid #eee;
+}
+
+.save-modal-footer button {
+  flex: 1;
+  height: 90rpx;
+  line-height: 90rpx;
+  font-size: 30rpx;
+  border-radius: 0;
+  background: transparent;
+}
+
+.save-cancel-btn {
+  color: #999;
+  border-right: 1rpx solid #eee;
+}
+
+.save-confirm-btn {
+  color: #07c160;
+  font-weight: bold;
+}
+
+/* ========== 会话列表样式修复 ========== */
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.session-item.active {
+  background: #e8f5e9;
+}
+
+.session-info {
+  flex: 1;
+  overflow: hidden;
+  padding-right: 20rpx;
+}
+
+.session-name {
+  font-size: 30rpx;
+  color: #333;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-time {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
+  display: block;
+}
+
+.session-actions {
+  flex-shrink: 0;
+}
+
+.delete-btn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  opacity: 0.6;
+}
+
+.delete-btn:active {
+  opacity: 1;
+}

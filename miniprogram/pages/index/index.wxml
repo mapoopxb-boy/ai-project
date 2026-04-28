@@ -1,0 +1,249 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <!-- 对话管理栏 -->
+  <view class="session-bar">
+    <view class="session-selector" bindtap="showSessionList">
+      <text class="session-name">{{currentSessionTitle}}</text>
+      <text class="arrow">▼</text>
+    </view>
+    <view class="new-chat-btn" bindtap="createNewSession">
+      <text class="icon">➕</text>
+    </view>
+  </view>
+
+  <!-- 聊天区域 -->
+  <scroll-view class="chat-area" 
+               scroll-y 
+               scroll-into-view="{{scrollToView}}" 
+               scroll-with-animation="{{true}}"
+               enhanced="{{true}}"
+               show-scrollbar="{{false}}">
+    <block wx:for="{{messages}}" wx:key="index">
+      <view id="msg_{{index}}" 
+            class="message-item {{item.role === 'user' ? 'user-message' : 'ai-message'}} {{item.selected ? 'selected' : ''}}"
+            bindlongpress="onLongPressMessage"
+            data-index="{{index}}"
+            data-id="{{item.id}}">
+        <view class="message-content">
+          <!-- 多选勾选框 -->
+          <view class="checkbox-area" wx:if="{{item.showCheckbox || showSelectMode}}">
+            <view class="checkbox {{item.selected ? 'checked' : ''}}">
+              <text wx:if="{{item.selected}}">✓</text>
+            </view>
+          </view>
+          
+          <!-- 文本消息 -->
+          <text wx:if="{{item.type === 'text'}}">{{item.content}}</text>
+          
+          <!-- 图片消息 -->
+          <image wx:if="{{item.type === 'image'}}" 
+                 src="{{item.content}}" 
+                 mode="widthFix" 
+                 class="uploaded-image"
+                 bindtap="previewImage"
+                 data-url="{{item.content}}"></image>
+          
+          <!-- 视频消息 -->
+          <video wx:if="{{item.type === 'video'}}" 
+                 src="{{item.content}}" 
+                 controls 
+                 class="uploaded-video"></video>
+          
+          <!-- 文件消息 -->
+          <view wx:if="{{item.type === 'file'}}" class="file-message">
+            <text class="file-icon">📄</text>
+            <view class="file-info">
+              <text class="file-name">{{item.fileName}}</text>
+              <text class="file-size">{{item.fileSize}}</text>
+            </view>
+          </view>
+          
+          <!-- 图片生成附带文字 -->
+          <text wx:if="{{item.text}}" class="image-caption">{{item.text}}</text>
+          
+          <!-- 消息时间 -->
+          <text class="message-time" wx:if="{{item.time}}">{{item.time}}</text>
+        </view>
+      </view>
+    </block>
+    
+    <!-- 加载状态 -->
+    <view class="loading-area" wx:if="{{loading}}">
+      <view class="loading-dots">
+        <view class="dot"></view>
+        <view class="dot"></view>
+        <view class="dot"></view>
+      </view>
+      <text class="loading-text">{{thinkingTip}}</text>
+    </view>
+    
+    <!-- 底部占位 -->
+    <view id="bottom-placeholder" style="height: 20rpx;"></view>
+  </scroll-view>
+
+  <!-- 多选模式底部工具栏 -->
+  <view class="select-toolbar" wx:if="{{showSelectMode}}">
+    <view class="select-info">
+      <text>已选中 {{selectedCount}} 条消息</text>
+    </view>
+    <view class="toolbar-actions">
+      <view class="toolbar-btn cancel" bindtap="exitSelectMode">
+        <text>取消</text>
+      </view>
+      <view class="toolbar-btn save" bindtap="saveSelectedMessages">
+        <text>保存</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 输入区域（黄色背景） -->
+  <view class="input-area" wx:if="{{!showSelectMode}}">
+    <!-- 第一行：图标区域 -->
+    <view class="icon-row">
+      <view class="icon-btn" bindtap="showFileUploadPanel">
+        <text class="icon">📎</text>
+      </view>
+      <view class="icon-btn" bindtap="startVoiceInput">
+        <text class="icon">🎤</text>
+      </view>
+    </view>
+    
+    <!-- 第二行：输入区域 + 发送按钮 -->
+    <view class="input-row">
+      <view class="input-container">
+        <textarea class="message-input" 
+                  type="text" 
+                  placeholder="请向我提问题吧......"
+                  placeholder-class="placeholder"
+                  value="{{inputText}}"
+                  bindinput="onInput"
+                  bindfocus="onInputFocus"
+                  bindblur="onInputBlur"
+                  auto-height
+                  show-confirm-bar="{{false}}"
+                  maxlength="-1"/>
+      </view>
+      
+      <view class="send-btn" bindtap="sendMessage">
+        <text class="send-icon">↑</text>
+      </view>
+    </view>
+    
+    <!-- 历史记录浮层 -->
+    <view class="history-popup" wx:if="{{showHistoryPopup && historyList.length > 0}}">
+      <view class="history-title">最近输入</view>
+      <view class="history-list">
+        <view class="history-item" 
+              wx:for="{{historyList}}" 
+              wx:key="index"
+              bindtap="selectHistory"
+              data-content="{{item}}">
+          <text class="history-text">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Agent 按钮区域 -->
+  <view class="agent-buttons" wx:if="{{!showSelectMode}}">
+    <button class="agent-btn {{currentAgent === 'default' ? 'active' : ''}}" 
+            data-type="default" 
+            bindtap="selectAgent">💬 日常助手</button>
+    <button class="agent-btn {{currentAgent === 'emotion' ? 'active' : ''}}" 
+            data-type="emotion" 
+            bindtap="selectAgent">❤️ 情绪价值</button>
+    <button class="agent-btn {{currentAgent === 'wiki' ? 'active' : ''}}" 
+            data-type="wiki" 
+            bindtap="selectAgent">📚 生活百科</button>
+    <button class="agent-btn {{currentAgent === 'create' ? 'active' : ''}}" 
+            data-type="create" 
+            bindtap="selectAgent">🎨 AI创作</button>
+  </view>
+</view>
+
+<!-- 对话列表弹窗 -->
+<view class="session-modal {{showSessionList ? 'show' : ''}}" bindtap="hideSessionList">
+  <view class="session-modal-content" catchtap="stopPropagation">
+    <view class="session-modal-header">
+      <text class="modal-title">我的对话</text>
+      <view class="close-btn" bindtap="hideSessionList">✕</view>
+    </view>
+    <scroll-view class="session-list" scroll-y>
+      <block wx:for="{{sessions}}" wx:key="id">
+        <view class="session-item {{currentSessionId === item.id ? 'active' : ''}}">
+          <view class="session-info" bindtap="switchSession" data-id="{{item.id}}">
+            <text class="session-name">{{item.title}}</text>
+            <text class="session-time">{{item.timeStr}}</text>
+          </view>
+          <view class="session-actions">
+            <view class="delete-btn" catchtap="deleteSession" data-id="{{item.id}}">
+              <text>🗑️</text>
+            </view>
+          </view>
+        </view>
+      </block>
+      <view class="empty-sessions" wx:if="{{sessions.length === 0}}">
+        <text>暂无对话，点击➕开始新对话</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>
+
+<!-- 文件上传弹窗 -->
+<view class="upload-modal {{showUploadModal ? 'show' : ''}}" bindtap="hideFileUploadPanel">
+  <view class="upload-modal-content" catchtap="stopPropagation">
+    <view class="upload-modal-header">
+      <text class="modal-title">上传文件</text>
+      <view class="close-btn" bindtap="hideFileUploadPanel">✕</view>
+    </view>
+    
+    <view class="upload-drag-area" 
+          bindtap="showUploadOptions"
+          bindtouchstart="onTouchStart"
+          bindtouchmove="onTouchMove"
+          bindtouchend="onTouchEnd">
+      <view class="upload-icon">📎</view>
+      <text class="upload-text">点击或拖拽文件到此区域上传</text>
+      <text class="upload-tip">支持图片、视频、PDF、Word、Excel、TXT等格式</text>
+    </view>
+    
+    <view class="upload-buttons">
+      <button class="upload-btn" bindtap="takePhoto">📷 拍照</button>
+      <button class="upload-btn" bindtap="chooseImageFromAlbum">🖼️ 相册</button>
+      <button class="upload-btn" bindtap="chooseVideo">🎬 视频</button>
+      <button class="upload-btn" bindtap="chooseFileFromChat">📁 聊天文件</button>
+    </view>
+  </view>
+</view>
+
+<!-- 保存文件名和路径弹窗 -->
+<view class="save-modal {{showSaveModal ? 'show' : ''}}" bindtap="hideSaveModal">
+  <view class="save-modal-content" catchtap="stopPropagation">
+    <view class="save-modal-header">
+      <text class="modal-title">保存聊天记录</text>
+      <view class="close-btn" bindtap="hideSaveModal">✕</view>
+    </view>
+    <view class="save-form">
+      <view class="form-item">
+        <text class="form-label">文件名</text>
+        <input class="form-input" 
+               type="text" 
+               placeholder="请输入文件名" 
+               value="{{saveFileName}}"
+               bindinput="onSaveFileNameInput"/>
+        <text class="file-ext">.txt</text>
+      </view>
+      <view class="form-item">
+        <text class="form-label">保存路径</text>
+        <view class="path-selector" bindtap="selectSavePath">
+          <text class="path-text">{{savePath}}</text>
+          <text class="path-arrow">📁</text>
+        </view>
+      </view>
+    </view>
+    <view class="save-modal-footer">
+      <button class="save-cancel-btn" bindtap="hideSaveModal">取消</button>
+      <button class="save-confirm-btn" bindtap="confirmSave">保存</button>
+    </view>
+  </view>
+</view>
