@@ -1,75 +1,253 @@
-// pages/index/index.js
-const { aiChat } = require('../../utils/request.js');
+/**
+ * AI助手主页面
+ * 简化版 - 使用服务模块
+ * 
+ * 重构时间：2026-04-29
+ * 版本：v2.0
+ */
 
-// 生成唯一ID
-function generateId() {
-  return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
+// ============== 导入服务模块 ==============
+const messageService = require('../../utils/services/messageService');
+const uploadService = require('../../utils/services/uploadService');
+const exportService = require('../../utils/services/exportService');
+const storage = require('../../utils/modules/storage');
 
+// ============== 页面配置 ==============
 Page({
   data: {
     // 输入相关
     inputText: '',
     loading: false,
     thinkingTip: 'AI正在思考中...',
-    historyList: [],
-    showHistoryPopup: false,
-    currentAgent: "auto",
     
-    // 对话管理
+    // 对话相关
+    messages: [],
     sessions: [],
     currentSessionId: '',
     currentSessionTitle: '新对话',
+    
+    // 历史记录
+    historyList: [],
+    showHistoryPopup: false,
+    
+    // Agent
+    currentAgent: "auto",
+    
+    // UI 状态
     showSessionList: false,
-    
-    // 消息列表
-    messages: [],
-    
-    // 多选模式
+    showUploadModal: false,
     showSelectMode: false,
     selectedCount: 0,
-    
-    // 保存弹窗
     showSaveModal: false,
     saveFileName: '',
-    savePath: '小程序缓存',
+    savePath: '分享给朋友',
     
-    // UI 相关
+    // 滚动
     scrollToView: '',
-    showUploadModal: false,
+    
+    // 触摸坐标
     touchStartX: 0,
-    touchStartY: 0,
-    longPressTimer: null
+    touchStartY: 0
   },
 
-  onLoad() {
-    this.initSessions();
-    this.loadHistory();
-    this.recorderManager = wx.getRecorderManager();
-  },
-
-  // ========== 多选消息功能 ==========
+  // ========== 生命周期 ==========
   
-  // 长按消息
+  onLoad() {
+    this.initSession();
+    this.loadInputHistory();
+    
+    // 设置服务模块的 Agent
+    messageService.setAgent(this.data.currentAgent);
+    uploadService.setAgent(this.data.currentAgent);
+  },
+
+  // ========== 会话管理 ==========
+  
+  initSession() {
+    const sessions = storage.getSessions();
+    let currentSessionId = storage.getCurrentSessionId();
+    
+    if (sessions.length === 0) {
+      const newSession = storage.createNewSession();
+      currentSessionId = newSession.id;
+    } else if (!currentSessionId) {
+      currentSessionId = sessions[0].id;
+    }
+    
+    const messages = storage.getSessionMessages(currentSessionId);
+    const session = sessions.find(s => s.id === currentSessionId);
+    
+    this.setData({
+      sessions: storage.getSessions(),
+      currentSessionId: currentSessionId,
+      messages: messages,
+      currentSessionTitle: session?.title || '新对话'
+    });
+    
+    storage.saveCurrentSessionId(currentSessionId);
+    this.scrollToBottom();
+  },
+
+  saveCurrentSession() {
+    storage.saveSessionMessages(this.data.currentSessionId, this.data.messages);
+    const newTitle = this.generateSessionTitle();
+    if (newTitle !== this.data.currentSessionTitle) {
+      storage.updateSessionTitle(this.data.currentSessionId, newTitle);
+      this.setData({ currentSessionTitle: newTitle });
+    }
+  },
+
+  generateSessionTitle() {
+    const firstUserMsg = this.data.messages.find(m => m.role === 'user');
+    if (firstUserMsg && firstUserMsg.content) {
+      let title = firstUserMsg.content.substring(0, 20);
+      return title.length <= 20 ? title : title.substring(0, 18) + '...';
+    }
+    return '新对话';
+  },
+
+  // ========== 输入历史 ==========
+  
+  loadInputHistory() {
+    const userId = storage.getUserId();
+    const history = storage.getInputHistory(userId);
+    this.setData({ historyList: history });
+  },
+
+  saveToHistory(content) {
+    if (!content || !content.trim()) return;
+    const userId = storage.getUserId();
+    const history = storage.addToInputHistory(userId, content);
+    this.setData({ historyList: history });
+  },
+
+  // ========== Agent 切换 ==========
+  
+  selectAgent(e) {
+    const agentType = e.currentTarget.dataset.type;
+    this.setData({ currentAgent: agentType });
+    messageService.setAgent(agentType);
+    uploadService.setAgent(agentType);
+  },
+
+  // ========== 发送消息 ==========
+  
+  async sendMessage() {
+    const content = this.data.inputText.trim();
+    if (!content) {
+      wx.showToast({ title: '请输入内容', icon: 'none' });
+      return;
+    }
+
+    this.saveToHistory(content);
+
+    const userMsg = messageService.createMessage('user', 'text', content);
+    const newMessages = [...this.data.messages, userMsg];
+    
+    this.setData({
+      messages: newMessages,
+      inputText: '',
+      loading: true,
+      showHistoryPopup: false
+    });
+    this.saveCurrentSession();
+    this.scrollToBottom();
+
+    try {
+      const userId = storage.getUserId();
+      const response = await messageService.sendMessage(content, userId);
+      
+      let aiMsg;
+      if (response.type === 'image') {
+        aiMsg = messageService.createMessage('ai', 'image', response.content, {
+          text: response.text
+        });
+      } else {
+        aiMsg = messageService.createMessage('ai', 'text', response.content);
+      }
+      
+      this.setData({
+        messages: [...this.data.messages, aiMsg],
+        loading: false
+      });
+      this.saveCurrentSession();
+      this.scrollToBottom();
+
+    } catch (err) {
+      console.error('发送失败:', err);
+      this.setData({ loading: false });
+      wx.showToast({ title: '网络请求异常', icon: 'none' });
+    }
+  },
+
+  // ========== 文件上传 ==========
+  
+  showFileUploadPanel() {
+    this.setData({ showUploadModal: true });
+  },
+
+  hideFileUploadPanel() {
+    this.setData({ showUploadModal: false });
+  },
+
+  onSelectUploadType(type) {
+    this.hideFileUploadPanel();
+    
+    const actions = {
+      camera: () => uploadService.takePhoto(),
+      album: () => uploadService.chooseImageFromAlbum(),
+      video: () => uploadService.chooseVideo(),
+      file: () => uploadService.chooseFileFromChat()
+    };
+    
+    if (actions[type]) {
+      actions[type]().then(fileInfo => {
+        this.handleUploadedFile(fileInfo);
+      }).catch(err => {
+        console.error('选择文件失败:', err);
+      });
+    }
+  },
+
+  async handleUploadedFile(fileInfo) {
+    const userMsg = uploadService.createUserMessage(fileInfo);
+    this.setData({
+      messages: [...this.data.messages, userMsg],
+      loading: true,
+      thinkingTip: '正在分析...'
+    });
+    this.saveCurrentSession();
+    this.scrollToBottom();
+
+    const result = await uploadService.analyzeFile(fileInfo);
+    
+    const aiMsg = messageService.createMessage('ai', 'text', result.answer);
+    
+    this.setData({
+      messages: [...this.data.messages, aiMsg],
+      loading: false
+    });
+    this.saveCurrentSession();
+    this.scrollToBottom();
+  },
+
+  takePhoto() { this.onSelectUploadType('camera'); },
+  chooseImageFromAlbum() { this.onSelectUploadType('album'); },
+  chooseVideo() { this.onSelectUploadType('video'); },
+  chooseFileFromChat() { this.onSelectUploadType('file'); },
+
+  // ========== 消息选择与导出 ==========
+  
   onLongPressMessage(e) {
     const index = e.currentTarget.dataset.index;
-    const messageId = e.currentTarget.dataset.id;
-    
-    // 震动反馈
     wx.vibrateShort({ type: 'light' });
-    
-    // 进入多选模式
     this.enterSelectMode();
-    
-    // 选中当前消息
-    this.toggleMessageSelection(index, messageId);
+    this.toggleMessageSelection(index);
   },
-  
-  // 进入多选模式
+
   enterSelectMode() {
     if (this.data.showSelectMode) return;
     
-    // 为所有消息添加 showCheckbox 属性
     const messages = this.data.messages.map(msg => ({
       ...msg,
       showCheckbox: true,
@@ -82,26 +260,18 @@ Page({
       selectedCount: 0
     });
   },
-  
-  // 切换消息选中状态
-  toggleMessageSelection(index, messageId) {
+
+  toggleMessageSelection(index) {
     const messages = [...this.data.messages];
-    const message = messages[index];
+    messages[index].selected = !messages[index].selected;
+    const selectedCount = messages.filter(m => m.selected).length;
     
-    if (message) {
-      message.selected = !message.selected;
-      messages[index] = message;
-      
-      const selectedCount = messages.filter(m => m.selected).length;
-      
-      this.setData({
-        messages: messages,
-        selectedCount: selectedCount
-      });
-    }
+    this.setData({
+      messages: messages,
+      selectedCount: selectedCount
+    });
   },
-  
-  // 退出多选模式
+
   exitSelectMode() {
     const messages = this.data.messages.map(msg => ({
       ...msg,
@@ -112,301 +282,113 @@ Page({
     this.setData({
       messages: messages,
       showSelectMode: false,
-      selectedCount: 0
+      selectedCount: 0,
+      showSaveModal: false
     });
   },
-  
-  // 保存选中的消息
+
   saveSelectedMessages() {
     const selectedMessages = this.data.messages.filter(m => m.selected);
-    
     if (selectedMessages.length === 0) {
       wx.showToast({ title: '请先选择消息', icon: 'none' });
       return;
     }
     
-    // 生成默认文件名
-    const defaultFileName = `聊天记录_${this.formatDateForFileName(new Date())}`;
-    
     this.setData({
       showSaveModal: true,
-      saveFileName: defaultFileName,
-      savePath: '小程序缓存'
+      saveFileName: exportService.generateDefaultFileName(),
+      savePath: '分享给朋友'
     });
   },
-  
-  // 格式化日期用于文件名
-  formatDateForFileName(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const hour = date.getHours().toString().padStart(2, '0');
-    const minute = date.getMinutes().toString().padStart(2, '0');
-    return `${year}${month}${day}_${hour}${minute}`;
-  },
-  
-  // 文件名输入
+
   onSaveFileNameInput(e) {
     this.setData({ saveFileName: e.detail.value });
   },
-  
-  // 选择保存路径
+
   selectSavePath() {
     wx.showActionSheet({
-      itemList: ['小程序缓存', '系统相册', '分享给朋友'],
+      itemList: ['分享给朋友', '复制到剪贴板', '保存到缓存'],
       success: (res) => {
-        const paths = ['小程序缓存', '系统相册', '分享给朋友'];
+        const paths = ['分享给朋友', '复制到剪贴板', '保存到缓存'];
         this.setData({ savePath: paths[res.tapIndex] });
       }
     });
   },
-  
-  // 隐藏保存弹窗
+
   hideSaveModal() {
     this.setData({ showSaveModal: false });
   },
-  
-  // 确认保存
-  confirmSave() {
-    const { saveFileName, savePath, messages } = this.data;
+
+  async confirmSave() {
+    const { saveFileName, savePath, messages, currentSessionTitle } = this.data;
+    const selectedMessages = messages.filter(m => m.selected);
     
     if (!saveFileName.trim()) {
       wx.showToast({ title: '请输入文件名', icon: 'none' });
       return;
     }
     
-    // 获取选中的消息
-    const selectedMessages = messages.filter(m => m.selected);
-    
-    // 格式化聊天记录
-    const chatContent = this.formatSelectedMessages(selectedMessages, saveFileName);
+    const content = exportService.formatMessages(
+      selectedMessages, 
+      saveFileName, 
+      currentSessionTitle
+    );
     const fullFileName = `${saveFileName}.txt`;
     
-    if (savePath === '小程序缓存') {
-      this.saveToLocalCache(chatContent, fullFileName);
-    } else if (savePath === '系统相册') {
-      this.saveToAlbum(chatContent, fullFileName);
-    } else if (savePath === '分享给朋友') {
-      this.shareToFriend(chatContent, fullFileName);
-    }
-  },
-  
-  // 格式化选中的消息
-  formatSelectedMessages(selectedMessages, title) {
-    let content = `🤖 AI助手聊天记录\n`;
-    content += `对话名称：${this.data.currentSessionTitle}\n`;
-    content += `导出时间：${new Date().toLocaleString()}\n`;
-    content += `导出标题：${title}\n`;
-    content += `${'='.repeat(40)}\n\n`;
-    
-    selectedMessages.forEach((msg, index) => {
-      const role = msg.role === 'user' ? '👤 我' : '🤖 AI助手';
-      const time = msg.time || '';
-      let messageContent = msg.content || '';
-      
-      if (msg.type === 'image') {
-        messageContent = `[图片] ${messageContent}`;
-      } else if (msg.type === 'video') {
-        messageContent = `[视频] ${messageContent}`;
-      } else if (msg.type === 'file') {
-        messageContent = `[文件] ${msg.fileName || '文件'}`;
+    try {
+      if (savePath === '分享给朋友') {
+        await exportService.shareToFriend(content, fullFileName);
+      } else if (savePath === '复制到剪贴板') {
+        await exportService.copyToClipboard(content);
+      } else if (savePath === '保存到缓存') {
+        await exportService.saveToCache(content, fullFileName);
       }
-      
-      if (msg.text) {
-        messageContent += `\n[生成说明] ${msg.text}`;
-      }
-      
-      content += `\n${role}`;
-      if (time) content += ` (${time})`;
-      content += `：\n${messageContent}\n`;
-      content += `${'-'.repeat(30)}\n`;
-    });
-    
-    return content;
-  },
-  
-  // 保存到本地缓存
-  saveToLocalCache(content, fileName) {
-    const fs = wx.getFileSystemManager();
-    const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
-    
-    wx.showLoading({ title: '保存中...' });
-    
-    fs.writeFile({
-      filePath: filePath,
-      data: content,
-      encoding: 'utf8',
-      success: () => {
-        wx.hideLoading();
-        wx.showModal({
-          title: '保存成功',
-          content: `文件已保存到缓存目录\n文件名：${fileName}`,
-          showCancel: false,
-          success: () => {
-            this.exitSelectMode();
-            this.hideSaveModal();
-          }
-        });
-      },
-      fail: (err) => {
-        wx.hideLoading();
-        wx.showToast({ title: '保存失败', icon: 'none' });
-        console.error('保存失败:', err);
-      }
-    });
-  },
-  
-  // 保存到相册（转为图片）
-  saveToAlbum(content, fileName) {
-    wx.showLoading({ title: '生成图片中...' });
-    
-    // 使用 canvas 绘制图片（简化版，实际可用 canvas 绘制）
-    // 这里使用分享方式代替
-    wx.hideLoading();
-    wx.showModal({
-      title: '提示',
-      content: '保存到相册功能需要将文本转换为图片，当前版本建议选择"分享给朋友"',
-      showCancel: true,
-      confirmText: '分享',
-      success: (res) => {
-        if (res.confirm) {
-          this.shareToFriend(content, fileName);
-        }
-      }
-    });
-  },
-  
-  // 分享给朋友
-  shareToFriend(content, fileName) {
-    const fs = wx.getFileSystemManager();
-    const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
-    
-    wx.showLoading({ title: '准备中...' });
-    
-    fs.writeFile({
-      filePath: filePath,
-      data: content,
-      encoding: 'utf8',
-      success: () => {
-        wx.hideLoading();
-        wx.shareFileMessage({
-          filePath: filePath,
-          fileName: fileName,
-          success: () => {
-            wx.showToast({ title: '分享成功', icon: 'success' });
-            this.exitSelectMode();
-            this.hideSaveModal();
-          },
-          fail: () => {
-            wx.showToast({ title: '分享失败', icon: 'none' });
-          }
-        });
-      },
-      fail: (err) => {
-        wx.hideLoading();
-        wx.showToast({ title: '准备失败', icon: 'none' });
-        console.error('准备失败:', err);
-      }
-    });
-  },
-
-  // ========== 对话管理功能 ==========
-  
-  initSessions() {
-    const savedSessions = wx.getStorageSync('chat_sessions');
-    if (savedSessions && savedSessions.length > 0) {
-      const sessions = savedSessions.map(s => ({
-        ...s,
-        timeStr: this.formatSessionTime(s.createTime)
-      }));
-      this.setData({
-        sessions: sessions,
-        currentSessionId: sessions[0].id,
-        messages: sessions[0].messages || [],
-        currentSessionTitle: sessions[0].title || '新对话'
-      });
-    } else {
-      const newSession = this.createNewSessionObject();
-      this.setData({
-        sessions: [newSession],
-        currentSessionId: newSession.id,
-        messages: [],
-        currentSessionTitle: newSession.title
-      });
-    }
-    setTimeout(() => this.scrollToBottom(), 100);
-  },
-
-  createNewSessionObject() {
-    return {
-      id: `session_${Date.now()}`,
-      title: `新对话`,
-      messages: [],
-      createTime: Date.now(),
-      timeStr: this.formatSessionTime(Date.now())
-    };
-  },
-
-  formatSessionTime(timestamp) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) {
-      return `今天 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-    } else if (days === 1) {
-      return '昨天';
-    } else if (days < 7) {
-      return `${days}天前`;
-    } else {
-      return `${date.getMonth() + 1}/${date.getDate()}`;
+      this.exitSelectMode();
+    } catch (err) {
+      console.error('导出失败:', err);
     }
   },
 
-  createNewSession() {
-    const newSession = this.createNewSessionObject();
-    const newSessions = [newSession, ...this.data.sessions];
-    
-    this.setData({
-      sessions: newSessions,
-      currentSessionId: newSession.id,
-      messages: [],
-      currentSessionTitle: newSession.title,
-      showSessionList: false
+  // ========== 会话列表 ==========
+  
+  showSessionList() {
+    const sessions = storage.getSessions();
+    this.setData({ 
+      sessions: sessions,
+      showSessionList: true 
     });
-    
-    this.saveSessions();
-    wx.showToast({ title: '新对话已开启', icon: 'success' });
-    setTimeout(() => this.scrollToBottom(), 100);
+  },
+
+  hideSessionList() {
+    this.setData({ showSessionList: false });
   },
 
   switchSession(e) {
     const sessionId = e.currentTarget.dataset.id;
-    const targetSession = this.data.sessions.find(s => s.id === sessionId);
+    const messages = storage.getSessionMessages(sessionId);
+    const sessions = storage.getSessions();
+    const session = sessions.find(s => s.id === sessionId);
     
-    if (targetSession) {
-      // 退出多选模式
-      if (this.data.showSelectMode) {
-        this.exitSelectMode();
-      }
-      
-      this.setData({
-        currentSessionId: sessionId,
-        messages: targetSession.messages || [],
-        currentSessionTitle: targetSession.title || '新对话',
-        showSessionList: false,
-        loading: false
-      });
-      setTimeout(() => this.scrollToBottom(), 100);
+    if (this.data.showSelectMode) {
+      this.exitSelectMode();
     }
+    
+    this.setData({
+      currentSessionId: sessionId,
+      messages: messages,
+      currentSessionTitle: session?.title || '新对话',
+      showSessionList: false,
+      loading: false
+    });
+    
+    storage.saveCurrentSessionId(sessionId);
+    this.scrollToBottom();
   },
 
   deleteSession(e) {
     e.stopPropagation();
-    
     const sessionId = e.currentTarget.dataset.id;
-    const sessions = this.data.sessions;
+    const sessions = storage.getSessions();
     
     if (sessions.length === 1) {
       wx.showToast({ title: '至少保留一个对话', icon: 'none' });
@@ -414,10 +396,6 @@ Page({
     }
     
     const targetSession = sessions.find(s => s.id === sessionId);
-    if (!targetSession) {
-      wx.showToast({ title: '对话不存在', icon: 'none' });
-      return;
-    }
     
     wx.showModal({
       title: '删除对话',
@@ -425,101 +403,49 @@ Page({
       confirmColor: '#ff4444',
       success: (res) => {
         if (res.confirm) {
-          const newSessions = sessions.filter(s => s.id !== sessionId);
+          storage.deleteSession(sessionId);
+          
           let newCurrentId = this.data.currentSessionId;
           let newMessages = this.data.messages;
           
           if (sessionId === this.data.currentSessionId) {
+            const newSessions = storage.getSessions();
             newCurrentId = newSessions[0].id;
-            newMessages = newSessions[0].messages || [];
+            newMessages = storage.getSessionMessages(newCurrentId);
           }
           
           this.setData({
-            sessions: newSessions,
             currentSessionId: newCurrentId,
             messages: newMessages,
-            currentSessionTitle: newSessions.find(s => s.id === newCurrentId).title || '新对话'
+            currentSessionTitle: storage.getSessions().find(s => s.id === newCurrentId)?.title
           });
           
-          this.saveSessions();
           wx.showToast({ title: '已删除', icon: 'success' });
-          setTimeout(() => this.scrollToBottom(), 100);
         }
       }
     });
   },
 
-  saveSessions() {
-    const updatedSessions = this.data.sessions.map(session => {
-      if (session.id === this.data.currentSessionId) {
-        return {
-          ...session,
-          messages: this.data.messages,
-          title: this.generateSessionTitle(this.data.messages),
-          timeStr: this.formatSessionTime(session.createTime)
-        };
-      }
-      return {
-        ...session,
-        timeStr: this.formatSessionTime(session.createTime)
-      };
+  createNewSession() {
+    const newSession = storage.createNewSession();
+    this.setData({
+      currentSessionId: newSession.id,
+      messages: [],
+      currentSessionTitle: newSession.title,
+      showSessionList: false
     });
-    
-    this.setData({ sessions: updatedSessions });
-    wx.setStorageSync('chat_sessions', updatedSessions);
+    storage.saveCurrentSessionId(newSession.id);
+    wx.showToast({ title: '新对话已开启', icon: 'success' });
+    this.scrollToBottom();
   },
 
-  generateSessionTitle(messages) {
-    const firstUserMsg = messages.find(m => m.role === 'user');
-    if (firstUserMsg && firstUserMsg.content) {
-      let title = firstUserMsg.content.substring(0, 20);
-      if (title.length <= 20) return title;
-      return title.substring(0, 18) + '...';
-    }
-    return '新对话';
-  },
-
-  updateCurrentSessionTitle() {
-    const newTitle = this.generateSessionTitle(this.data.messages);
-    if (newTitle !== this.data.currentSessionTitle) {
-      this.setData({ currentSessionTitle: newTitle });
-      this.saveSessions();
-    }
-  },
-
-  showSessionList() {
-    this.setData({ showSessionList: true });
-  },
-
-  hideSessionList() {
-    this.setData({ showSessionList: false });
-  },
-
-  stopPropagation(e) {
-    if (e && e.stopPropagation) {
-      e.stopPropagation();
-    }
-  },
-
-  // ========== 历史记录功能 ==========
+  // ========== 输入框事件 ==========
   
-  loadHistory() {
-    const userId = wx.getStorageSync('user_id') || 'default_user';
-    const history = wx.getStorageSync(`chat_history_${userId}`) || [];
-    this.setData({ historyList: history });
-  },
-
-  saveToHistory(content) {
-    if (!content || !content.trim()) return;
-    
-    const userId = wx.getStorageSync('user_id') || 'default_user';
-    let list = [...this.data.historyList];
-    list = list.filter(item => item !== content);
-    list.unshift(content);
-    if (list.length > 5) list = list.slice(0, 5);
-    
-    this.setData({ historyList: list });
-    wx.setStorageSync(`chat_history_${userId}`, list);
+  onInput(e) {
+    this.setData({
+      inputText: e.detail.value,
+      showHistoryPopup: false
+    });
   },
 
   onInputFocus() {
@@ -534,13 +460,6 @@ Page({
     }, 200);
   },
 
-  onInput(e) {
-    this.setData({
-      inputText: e.detail.value,
-      showHistoryPopup: false
-    });
-  },
-
   selectHistory(e) {
     const content = e.currentTarget.dataset.content;
     this.setData({
@@ -549,159 +468,12 @@ Page({
     });
   },
 
-  // ========== Agent 切换 ==========
+  startVoiceInput() {
+    wx.showToast({ title: '敬请期待', icon: 'none' });
+  },
+
+  // ========== 辅助方法 ==========
   
-  selectAgent(e) {
-    const type = e.currentTarget.dataset.type;
-    console.log("切换到Agent:", type);
-    this.setData({ currentAgent: type });
-  },
-
-  // ========== 文件上传功能 ==========
-  
-  showFileUploadPanel() {
-    this.setData({ showUploadModal: true });
-  },
-  
-  hideFileUploadPanel() {
-    this.setData({ showUploadModal: false });
-  },
-  
-  showUploadOptions() {
-    wx.showActionSheet({
-      itemList: ['拍照', '从相册选择图片', '选择视频', '从聊天记录选择文件'],
-      success: (res) => {
-        switch (res.tapIndex) {
-          case 0:
-            this.takePhoto();
-            break;
-          case 1:
-            this.chooseImageFromAlbum();
-            break;
-          case 2:
-            this.chooseVideo();
-            break;
-          case 3:
-            this.chooseFileFromChat();
-            break;
-        }
-        this.hideFileUploadPanel();
-      }
-    });
-  },
-
-  takePhoto() {
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['camera'],
-      success: (res) => {
-        const tempFile = res.tempFiles[0];
-        this.uploadAndAnalyze(tempFile.tempFilePath, 'image');
-      }
-    });
-  },
-
-  chooseImageFromAlbum() {
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['album'],
-      success: (res) => {
-        const tempFile = res.tempFiles[0];
-        this.uploadAndAnalyze(tempFile.tempFilePath, 'image');
-      }
-    });
-  },
-
-  chooseVideo() {
-    wx.chooseVideo({
-      sourceType: ['album', 'camera'],
-      maxDuration: 60,
-      success: (res) => {
-        this.uploadAndAnalyze(res.tempFilePath, 'video');
-      }
-    });
-  },
-
-  chooseFileFromChat() {
-    wx.chooseMessageFile({
-      count: 1,
-      type: 'file',
-      success: (res) => {
-        const file = res.tempFiles[0];
-        this.uploadAndAnalyze(file.path, 'file', {
-          name: file.name,
-          size: this.formatFileSize(file.size)
-        });
-      }
-    });
-  },
-
-  async uploadAndAnalyze(filePath, fileType, metadata = {}) {
-    const userMsg = {
-      id: generateId(),
-      role: 'user',
-      type: fileType,
-      content: fileType === 'image' ? filePath : 
-               (fileType === 'video' ? filePath : `已上传文件：${metadata.name || '文件'}`),
-      time: new Date().toLocaleTimeString()
-    };
-    
-    if (fileType === 'file') {
-      userMsg.fileName = metadata.name;
-      userMsg.fileSize = metadata.size;
-    }
-    
-    const newMessages = [...this.data.messages, userMsg];
-    this.setData({
-      messages: newMessages,
-      loading: true,
-      thinkingTip: '正在分析...'
-    });
-    this.saveSessions();
-    this.scrollToBottom();
-    
-    await this.analyzeFile(filePath, fileType, metadata);
-  },
-
-  async analyzeFile(filePath, fileType, metadata) {
-    try {
-      let question = '';
-      if (fileType === 'image') {
-        question = '请分析这张图片的内容，描述你看到了什么。';
-      } else if (fileType === 'video') {
-        question = '请分析这个视频的内容。';
-      } else {
-        question = `请分析文件"${metadata.name}"的内容，并总结要点。`;
-      }
-      
-      const userId = wx.getStorageSync('user_id') || 'wx_default_user';
-      const res = await aiChat(question, userId, this.data.currentAgent);
-      
-      const aiMsg = {
-        id: generateId(),
-        role: 'ai',
-        type: 'text',
-        content: res.answer || '暂时无法分析该文件',
-        time: new Date().toLocaleTimeString()
-      };
-      
-      this.setData({
-        messages: [...this.data.messages, aiMsg],
-        loading: false
-      });
-      this.saveSessions();
-      this.updateCurrentSessionTitle();
-      this.scrollToBottom();
-      
-    } catch (err) {
-      console.error('分析失败:', err);
-      this.setData({ loading: false });
-      wx.showToast({ title: '分析失败', icon: 'none' });
-    }
-  },
-
   previewImage(e) {
     const url = e.currentTarget.dataset.url;
     wx.previewImage({
@@ -710,16 +482,20 @@ Page({
     });
   },
 
-  formatFileSize(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  scrollToBottom() {
+    setTimeout(() => {
+      this.setData({
+        scrollToView: 'bottom-placeholder'
+      });
+    }, 100);
   },
 
-  // ========== 拖拽模拟 ==========
-  
+  stopPropagation(e) {
+    if (e && e.stopPropagation) {
+      e.stopPropagation();
+    }
+  },
+
   onTouchStart(e) {
     this.setData({
       touchStartX: e.touches[0].clientX,
@@ -728,121 +504,23 @@ Page({
   },
 
   onTouchMove(e) {
-    const moveX = e.touches[0].clientX;
-    const moveY = e.touches[0].clientY;
-    const deltaX = moveX - this.data.touchStartX;
-    const deltaY = moveY - this.data.touchStartY;
+    const deltaX = e.touches[0].clientX - this.data.touchStartX;
+    const deltaY = e.touches[0].clientY - this.data.touchStartY;
     
     if (Math.abs(deltaX) > 20 || Math.abs(deltaY) > 20) {
-      wx.showToast({
-        title: '拖拽中，松手上传',
-        icon: 'none',
-        duration: 200
-      });
+      wx.showToast({ title: '拖拽中，松手上传', icon: 'none', duration: 200 });
     }
   },
 
-  onTouchEnd(e) {
+  onTouchEnd() {
     wx.showModal({
       title: '上传文件',
       content: '是否上传文件？',
       success: (res) => {
         if (res.confirm) {
-          this.showUploadOptions();
+          this.showFileUploadPanel();
         }
       }
     });
-  },
-
-  // ========== 语音输入 ==========
-  
-  startVoiceInput() {
-    wx.showToast({ title: '请说话，语音转文字中', icon: 'none' });
-  },
-
-  // ========== 发送消息 ==========
-  
-  async sendMessage() {
-    const content = this.data.inputText.trim();
-    if (!content) {
-      wx.showToast({ title: '请输入内容', icon: 'none' });
-      return;
-    }
-
-    this.saveToHistory(content);
-
-    const userMsg = { 
-      id: generateId(),
-      role: 'user', 
-      type: 'text',
-      content: content,
-      time: new Date().toLocaleTimeString()
-    };
-    
-    const newMessages = [...this.data.messages, userMsg];
-    this.setData({
-      messages: newMessages,
-      inputText: '',
-      loading: true,
-      thinkingTip: 'AI正在思考中...'
-    });
-    this.saveSessions();
-    this.scrollToBottom();
-
-    try {
-      const userId = wx.getStorageSync('user_id') || 'wx_default_user';
-      const res = await aiChat(content, userId, this.data.currentAgent);
-      
-      let aiMsg = {};
-      
-      if (res.image_url) {
-        aiMsg = {
-          id: generateId(),
-          role: 'ai',
-          type: 'image',
-          content: res.image_url,
-          text: res.answer,
-          time: new Date().toLocaleTimeString()
-        };
-      } else if (res.news_data && res.news_data.length > 0) {
-        let newsText = res.answer;
-        aiMsg = {
-          id: generateId(),
-          role: 'ai',
-          type: 'text',
-          content: newsText,
-          time: new Date().toLocaleTimeString()
-        };
-      } else {
-        aiMsg = {
-          id: generateId(),
-          role: 'ai',
-          type: 'text',
-          content: res.answer || '暂时无法回复',
-          time: new Date().toLocaleTimeString()
-        };
-      }
-
-      this.setData({
-        messages: [...this.data.messages, aiMsg],
-        loading: false
-      });
-      this.saveSessions();
-      this.updateCurrentSessionTitle();
-      this.scrollToBottom();
-
-    } catch (err) {
-      console.error('请求错误：', err);
-      this.setData({ loading: false });
-      wx.showToast({ title: '网络请求异常', icon: 'none' });
-    }
-  },
-
-  scrollToBottom() {
-    setTimeout(() => {
-      this.setData({
-        scrollToView: 'bottom-placeholder'
-      });
-    }, 100);
   }
 });
