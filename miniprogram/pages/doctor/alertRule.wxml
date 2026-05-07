@@ -1,0 +1,14 @@
+<view class="container">
+  <view class="rule-list">
+    <view class="rule-item">
+      <text>疼痛评分预警阈值</text>
+      <input type="number" value="{{painThreshold}}" bindinput="onPainChange" />
+      <text>（0-10）</text>
+    </view>
+    <view class="rule-item">
+      <text>血压收缩压预警阈值</text>
+      <input type="number" value="{{bpSysThreshold}}" bindinput="onBpSysChange" />
+    </view>
+  </view>
+  <button bindtap="saveRules">保存设置</button>
+</view>

@@ -1,0 +1,249 @@
+page {
+  background-color: #f0f7f0;
+}
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 医疗头部 */
+.medical-header {
+  background: linear-gradient(135deg, #07c160, #059e4a);
+  padding: 30rpx 30rpx 20rpx;
+  text-align: center;
+  color: white;
+}
+.title {
+  font-size: 40rpx;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.subtitle {
+  font-size: 24rpx;
+  opacity: 0.9;
+  display: block;
+  margin-bottom: 15rpx;
+}
+.disclaimer {
+  font-size: 22rpx;
+  background: rgba(255,255,255,0.2);
+  padding: 10rpx;
+  border-radius: 20rpx;
+  display: block;
+}
+
+/* 服药提醒横幅 */
+.med-time-banner {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  padding: 20rpx 30rpx;
+  text-align: center;
+  color: white;
+  font-size: 26rpx;
+  font-weight: bold;
+  animation: bannerPulse 0.5s ease;
+}
+@keyframes bannerPulse {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 功能栏 */
+.func-bar {
+  white-space: nowrap;
+  background: white;
+  padding: 15rpx 20rpx;
+  border-bottom: 1rpx solid #eee;
+}
+.func-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110rpx;
+  margin-right: 20rpx;
+}
+.func-icon {
+  font-size: 44rpx;
+}
+.func-text {
+  font-size: 24rpx;
+  color: #333;
+  margin-top: 8rpx;
+}
+
+/* 聊天区域 */
+.chat-area {
+  flex: 1;
+  padding: 20rpx;
+  overflow-y: auto;
+}
+.message-item {
+  margin-bottom: 30rpx;
+  display: flex;
+}
+.user-message {
+  justify-content: flex-end;
+}
+.ai-message {
+  justify-content: flex-start;
+}
+.message-content {
+  max-width: 80%;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  word-wrap: break-word;
+  position: relative;
+}
+.user-message .message-content {
+  background: #07c160;
+  color: white;
+}
+.ai-message .message-content {
+  background: white;
+  color: #333;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.1);
+  border-left: 4rpx solid #07c160;
+}
+.message-time {
+  display: block;
+  font-size: 20rpx;
+  color: rgba(0,0,0,0.4);
+  margin-top: 8rpx;
+  text-align: right;
+}
+.user-message .message-time {
+  color: rgba(255,255,255,0.7);
+}
+
+/* 快捷症状 */
+.quick-symptoms {
+  background: white;
+  padding: 20rpx;
+  border-top: 1rpx solid #eee;
+  border-bottom: 1rpx solid #eee;
+}
+.quick-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15rpx;
+}
+.quick-title {
+  font-size: 26rpx;
+  color: #666;
+}
+.quick-close {
+  font-size: 24rpx;
+  color: #999;
+  padding: 5rpx 10rpx;
+}
+.symptom-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15rpx;
+}
+.symptom-btn {
+  background: #f0f7f0;
+  border: 1rpx solid #07c160;
+  color: #07c160;
+  font-size: 26rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 60rpx;
+  margin: 0;
+}
+
+/* 输入区域（复刻主页面） */
+.input-area {
+  background: #fef7e0;
+  padding: 20rpx;
+  border-top: 1rpx solid #e6d5a8;
+}
+.icon-row {
+  display: flex;
+  gap: 30rpx;
+  align-items: center;
+  margin-bottom: 15rpx;
+  padding-left: 10rpx;
+}
+.icon-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.8);
+}
+.icon {
+  font-size: 32rpx;
+}
+.input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12rpx;
+}
+.input-container {
+  flex: 1;
+  background: white;
+  border-radius: 30rpx;
+  padding: 12rpx 20rpx;
+  border: 1rpx solid #e6d5a8;
+}
+.message-input {
+  width: 100%;
+  min-height: 70rpx;
+  max-height: 200rpx;
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+.placeholder {
+  color: #ccc;
+  font-size: 28rpx;
+}
+.send-btn {
+  width: 72rpx;
+  height: 72rpx;
+  background: #07c160;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 12rpx rgba(7,193,96,0.3);
+}
+.send-icon {
+  font-size: 40rpx;
+  color: white;
+  font-weight: bold;
+}
+
+/* 加载动画 */
+.loading-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  padding: 20rpx;
+}
+.loading-dots {
+  display: flex;
+  gap: 10rpx;
+}
+.dot {
+  width: 12rpx;
+  height: 12rpx;
+  background: #07c160;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+.dot:nth-child(2) { animation-delay: -0.16s; }
+.dot:nth-child(3) { animation-delay: -0.32s; }
+@keyframes bounce {
+  0%,80%,100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+.loading-text {
+  font-size: 26rpx;
+  color: #999;
+}

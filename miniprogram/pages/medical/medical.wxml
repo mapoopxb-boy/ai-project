@@ -1,0 +1,112 @@
+<view class="container">
+  <!-- 医疗头部 -->
+  <view class="medical-header">
+    <text class="title">🏥 AI医疗助手</text>
+    <text class="subtitle">症状分析 · 报告解读 · 科室指引</text>
+    <text class="disclaimer">⚠️ 本服务仅供参考，不能替代医生诊断</text>
+  </view>
+
+  <!-- 服药提醒横幅 -->
+  <view class="med-time-banner" wx:if="{{reminderBanner}}" bindtap="goToReminder">
+    <text>⏰ {{reminderBanner}}</text>
+  </view>
+
+  <!-- 功能按钮栏 -->
+  <scroll-view class="func-bar" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="func-item" bindtap="uploadReport">
+      <text class="func-icon">📄</text>
+      <text class="func-text">上传报告</text>
+    </view>
+    <view class="func-item" bindtap="showDepartmentGuide">
+      <text class="func-icon">🏥</text>
+      <text class="func-text">科室指引</text>
+    </view>
+    <view class="func-item" bindtap="showEmergencyGuide">
+      <text class="func-icon">🚑</text>
+      <text class="func-text">急救指南</text>
+    </view>
+    <view class="func-item" bindtap="goToRehab">
+      <text class="func-icon">🏋️</text>
+      <text class="func-text">康复计划</text>
+    </view>
+    <view class="func-item" bindtap="goToDoctorBoard">
+       <text class="func-icon">👨‍⚕️</text>
+       <text class="func-text">医生看板</text>
+    </view>
+    <view class="func-item" bindtap="goToMessages">
+       <text class="func-icon">💬</text>
+       <text class="func-text">消息中心</text>
+    </view>
+    <view class="func-item" bindtap="goToReminder">
+      <text class="func-icon">💊</text>
+      <text class="func-text">用药提醒</text>
+    </view>
+    <view class="func-item" bindtap="clearChat">
+       <text class="func-icon">🗑️</text>
+       <text class="func-text">清空对话</text>
+    </view>
+  </scroll-view>
+
+  <!-- 聊天区域 -->
+<scroll-view class="chat-area" scroll-y scroll-into-view="{{scrollToView}}" scroll-with-animation="{{true}}">
+  <block wx:for="{{messages}}" wx:key="index">
+    <view id="msg_{{index}}" 
+          class="message-item {{item.role === 'user' ? 'user-message' : 'ai-message'}}"
+          bindlongpress="onLongPressMessage"
+          data-index="{{index}}">
+      <view class="message-content">
+        <text>{{item.content}}</text>
+        <text class="message-time" wx:if="{{item.time}}">{{item.time}}</text>
+      </view>
+    </view>
+  </block>
+  <!-- 其他内容（加载动画、底部占位等）保持不变 -->
+  <view class="loading-area" wx:if="{{loading}}">...</view>
+  <view id="bottom-placeholder" style="height: 20rpx;"></view>
+</scroll-view>
+
+  <!-- 快捷症状（可关闭） -->
+  <view class="quick-symptoms" wx:if="{{showQuickSymptoms}}">
+    <view class="quick-header">
+      <text class="quick-title">常见症状</text>
+      <text class="quick-close" bindtap="hideQuickSymptoms">收起</text>
+    </view>
+    <view class="symptom-list">
+      <button class="symptom-btn" bindtap="quickSymptom" data-symptom="头痛发烧">🤒 头痛发烧</button>
+      <button class="symptom-btn" bindtap="quickSymptom" data-symptom="胃痛恶心">🤢 胃痛恶心</button>
+      <button class="symptom-btn" bindtap="quickSymptom" data-symptom="咳嗽胸闷">😷 咳嗽胸闷</button>
+      <button class="symptom-btn" bindtap="quickSymptom" data-symptom="关节疼痛">🦵 关节疼痛</button>
+      <button class="symptom-btn" bindtap="quickSymptom" data-symptom="头晕乏力">😵 头晕乏力</button>
+      <button class="symptom-btn" bindtap="quickSymptom" data-symptom="心慌气短">💓 心慌气短</button>
+    </view>
+  </view>
+
+  <!-- 输入区域（完全复刻主页面布局） -->
+  <view class="input-area">
+    <!-- 第一行：图标区域 -->
+    <view class="icon-row">
+      <view class="icon-btn" bindtap="uploadFile">
+        <text class="icon">📎</text>
+      </view>
+      <view class="icon-btn" bindtap="startVoiceInput">
+        <text class="icon">🎤</text>
+      </view>
+    </view>
+    <!-- 第二行：输入框 + 发送按钮 -->
+    <view class="input-row">
+      <view class="input-container">
+        <textarea class="message-input" 
+                  placeholder="请描述您的症状..." 
+                  placeholder-class="placeholder"
+                  value="{{inputText}}"
+                  bindinput="onInput"
+                  auto-height
+                  show-confirm-bar="{{false}}"
+                  maxlength="-1"/>
+      </view>
+      <view class="send-btn" bindtap="sendMessage">
+        <text class="send-icon">↑</text>
+      </view>
+    </view>
+  </view>
+</view>

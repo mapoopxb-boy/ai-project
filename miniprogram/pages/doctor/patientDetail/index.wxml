@@ -1,0 +1,40 @@
+<view class="container">
+  <!-- 患者基本信息和康复概况 -->
+  <view class="patient-header">
+    <text class="name">{{patient.name}}</text>
+    <text class="diagnosis">{{patient.diagnosis}}</text>
+    <text class="postop">术后第{{patient.postOpDays}}天</text>
+  </view>
+
+  <!-- 康复完成率趋势图（简易折线图） -->
+  <view class="chart-section">
+    <text class="section-title">康复完成率趋势</text>
+    <canvas canvas-id="trendCanvas" class="trend-canvas" style="width:100%; height:300rpx;"></canvas>
+  </view>
+
+  <!-- 预警历史 -->
+  <view class="alert-section">
+    <text class="section-title">预警历史</text>
+    <view wx:if="{{alerts.length === 0}}" class="empty-tip">暂无预警记录</view>
+    <view wx:for="{{alerts}}" wx:key="index" class="alert-item {{item.resolved ? 'resolved' : 'unresolved'}}">
+      <text class="alert-time">{{item.time}}</text>
+      <text class="alert-content">{{item.message}}</text>
+      <button wx:if="{{!item.resolved}}" size="mini" bindtap="resolveAlert" data-id="{{item.id}}">标记已处理</button>
+    </view>
+  </view>
+
+  <!-- 医患沟通留言板 -->
+  <view class="message-section">
+    <text class="section-title">沟通记录</text>
+    <scroll-view scroll-y class="message-list">
+      <view wx:for="{{messages}}" wx:key="index" class="message-item {{item.fromDoctor ? 'doctor-msg' : 'patient-msg'}}">
+        <text class="msg-text">{{item.content}}</text>
+        <text class="msg-time">{{item.time}}</text>
+      </view>
+    </scroll-view>
+    <view class="input-area">
+      <input placeholder="回复患者..." bindinput="onReplyInput" value="{{replyText}}" />
+      <button size="mini" bindtap="sendReply">发送</button>
+    </view>
+  </view>
+</view>

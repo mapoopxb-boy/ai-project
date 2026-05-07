@@ -1,0 +1,90 @@
+<view class="container">
+  <!-- 时段提醒横幅 -->
+  <view class="time-banner" wx:if="{{timeBanner}}" bindtap="goToReminder">
+    <text class="banner-icon">⏰</text>
+    <text class="banner-text">{{timeBanner}}</text>
+  </view>
+
+  <!-- 今日概览 -->
+  <view class="summary-card">
+    <view class="summary-row">
+      <text class="summary-date">📅 {{todayKey}}</text>
+      <text class="summary-time">🕐 {{currentTime}}</text>
+    </view>
+    <view class="summary-stats">
+      <view class="stat-item">
+        <text class="stat-num">{{medications.length}}</text>
+        <text class="stat-label">药品数</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num">{{takenCount}}</text>
+        <text class="stat-label">已服用</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num">{{pendingCount}}</text>
+        <text class="stat-label">待服用</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 药品列表标题 -->
+  <view class="section-header">
+    <text class="section-title">💊 今日待提醒药品</text>
+    <view class="section-actions">
+      <text class="action-btn" bindtap="showAddDialog">➕ 添加</text>
+      <text class="action-btn" bindtap="resetMedications">↩️ 还原</text>
+      <text class="action-btn danger" bindtap="resetToday">🔄 重置</text>
+    </view>
+  </view>
+
+  <!-- 药品列表 -->
+  <view class="med-list" wx:if="{{medDisplayList.length > 0}}">
+    <block wx:for="{{medDisplayList}}" wx:key="id">
+      <view class="med-card" bindtap="editMedication" data-id="{{item.id}}">
+        <view class="med-header">
+          <text class="med-name">{{item.name}}</text>
+          <text class="med-dosage">{{item.dosage}}</text>
+        </view>
+
+        <view class="med-times">
+          <block wx:for="{{item.times}}" wx:for-item="slot" wx:key="takenKey">
+            <view class="time-slot {{slot.taken ? 'taken' : ''}}">
+              <view class="time-label-row">
+                <text class="time-label">{{slot.label}}</text>
+                <text class="time-hour">{{slot.timeStr}}</text>
+              </view>
+              <view class="time-action">
+                <button wx:if="{{!slot.taken}}" class="take-btn" bindtap="markAsTaken" data-id="{{item.id}}" data-label="{{slot.label}}">已服用</button>
+                <view wx:else class="taken-info">
+                  <text class="taken-check">✓</text>
+                  <text class="taken-time">{{slot.takenTimeStr}}</text>
+                  <text class="unmark-btn" bindtap="unmarkAsTaken" data-id="{{item.id}}" data-label="{{slot.label}}">撤销</text>
+                </view>
+              </view>
+            </view>
+          </block>
+        </view>
+
+        <!-- 备注 -->
+        <text class="med-note" wx:if="{{item.note}}">{{item.note}}</text>
+
+        <!-- 完成状态 -->
+        <view class="med-status" wx:if="{{item.allDone}}">
+          <text class="status-all-done">✅ 今日已完成</text>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{medDisplayList.length === 0}}">
+    <text class="empty-icon">💊</text>
+    <text class="empty-text">暂无药品</text>
+    <text class="empty-tip">点击上方 "➕ 添加" 添加药品</text>
+  </view>
+
+  <!-- 免责声明 -->
+  <view class="disclaimer">
+    <text>⚠️ 本提醒仅供参考，请遵医嘱用药</text>
+  </view>
+</view>

@@ -1,0 +1,58 @@
+.container {
+  padding: 20rpx;
+}
+.header {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.alert-badge {
+  background: #ff4d4f;
+  color: white;
+  padding: 10rpx 20rpx;
+  border-radius: 40rpx;
+  font-size: 24rpx;
+  display: flex;
+  align-items: center;
+}
+.alert-badge button {
+  background: white;
+  color: #ff4d4f;
+  margin-left: 20rpx;
+  font-size: 22rpx;
+  padding: 5rpx 15rpx;
+}
+.patient-card {
+  background: white;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.1);
+}
+.name {
+  font-size: 34rpx;
+  font-weight: bold;
+  display: block;
+}
+.diagnosis {
+  font-size: 28rpx;
+  color: #666;
+  margin-top: 8rpx;
+  display: block;
+}
+progress {
+  margin: 20rpx 0 10rpx;
+}
+.rate {
+  font-size: 26rpx;
+  color: #07c160;
+}
+.rule-btn {
+  margin: 40rpx auto;
+  width: 90%;
+  background-color: #07c160;
+  color: white;
+}

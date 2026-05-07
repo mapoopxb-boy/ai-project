@@ -1,0 +1,22 @@
+.container {
+  padding: 30rpx;
+}
+.rule-item {
+  margin-bottom: 40rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+.rule-item input {
+  border: 1rpx solid #ddd;
+  border-radius: 10rpx;
+  padding: 20rpx;
+  width: 120rpx;
+  text-align: center;
+}
+button {
+  margin-top: 60rpx;
+  background-color: #07c160;
+  color: white;
+  width: 90%;
+}

@@ -1,0 +1,104 @@
+<view class="container">
+  <!-- 概览卡片 -->
+  <view class="summary-card">
+    <view class="summary-item">
+      <text class="summary-num">{{records.length}}</text>
+      <text class="summary-label">总记录</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-num">{{records.length > 0 ? records[0].exerciseCompletion : '-'}}%</text>
+      <text class="summary-label">最近完成度</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-num">{{records.length > 0 ? records[0].painScore : '-'}}</text>
+      <text class="summary-label">最近疼痛评分</text>
+    </view>
+  </view>
+
+  <!-- 记录列表 -->
+  <view class="record-list" wx:if="{{records.length > 0}}">
+    <view class="section-title">康复记录</view>
+    <block wx:for="{{records}}" wx:key="id">
+      <view class="record-card">
+        <view class="record-header">
+          <text class="record-date">{{item.date}}</text>
+          <text class="record-delete" bindtap="deleteRecord" data-id="{{item.id}}">删除</text>
+        </view>
+        <view class="record-body">
+          <view class="record-row">
+            <text class="record-label">疼痛评分</text>
+            <view class="record-value-row">
+              <text class="record-value" style="color: {{item.painScore <= 4 ? '#07c160' : (item.painScore <= 7 ? '#f0ad4e' : '#e74c3c')}}">{{item.painScore}}/10</text>
+              <text class="pain-tag" style="background: {{item.painScore <= 4 ? '#e8f8e8' : (item.painScore <= 7 ? '#fff8e0' : '#ffe8e8')}}; color: {{item.painScore <= 4 ? '#07c160' : (item.painScore <= 7 ? '#f0ad4e' : '#e74c3c')}}">
+                {{item.painScore <= 2 ? '轻微' : (item.painScore <= 4 ? '轻度' : (item.painScore <= 6 ? '中度' : (item.painScore <= 8 ? '重度' : '剧烈')))}}
+              </text>
+            </view>
+          </view>
+          <view class="record-row">
+            <text class="record-label">运动完成度</text>
+            <view class="progress-bar">
+              <view class="progress-fill" style="width: {{item.exerciseCompletion}}%; background: {{item.exerciseCompletion >= 80 ? '#07c160' : (item.exerciseCompletion >= 50 ? '#f0ad4e' : '#e74c3c')}}"></view>
+            </view>
+            <text class="record-value" style="color: {{item.exerciseCompletion >= 80 ? '#07c160' : (item.exerciseCompletion >= 50 ? '#f0ad4e' : '#e74c3c')}}">{{item.exerciseCompletion}}%</text>
+          </view>
+          <view class="record-note" wx:if="{{item.note}}">
+            <text class="record-label">备注</text>
+            <text class="note-text">{{item.note}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && records.length === 0}}">
+    <text class="empty-icon">📋</text>
+    <text class="empty-text">暂无康复记录</text>
+    <text class="empty-tip">点击下方按钮添加第一笔记录</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-tip" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-btn-wrapper" wx:if="{{!showForm}}">
+    <button type="primary" bindtap="showSubmitForm">✚ 提交康复记录</button>
+  </view>
+
+  <!-- 提交表单 -->
+  <view class="form-panel" wx:if="{{showForm}}">
+    <view class="form-title">新增康复记录</view>
+
+    <view class="form-item">
+      <text class="form-label">疼痛评分：<text class="form-value">{{formData.painScore}}/10</text></text>
+      <slider min="0" max="10" value="{{formData.painScore}}" bindchange="onPainChange" activeColor="#e74c3c" block-size="20" />
+      <view class="slider-labels">
+        <text>0 无痛</text>
+        <text>5 中等</text>
+        <text>10 剧痛</text>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">运动完成度：<text class="form-value">{{formData.exerciseCompletion}}%</text></text>
+      <slider min="0" max="100" value="{{formData.exerciseCompletion}}" bindchange="onExerciseChange" activeColor="#07c160" block-size="20" />
+      <view class="slider-labels">
+        <text>0%</text>
+        <text>50%</text>
+        <text>100%</text>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">备注（选填）</text>
+      <textarea placeholder="记录今天的康复感受..." value="{{formData.note}}" bindinput="onNoteInput" maxlength="200" auto-height />
+    </view>
+
+    <view class="form-actions">
+      <button type="default" bindtap="hideForm" size="mini">取消</button>
+      <button type="primary" bindtap="submitRecord" loading="{{loading}}" size="mini">提交</button>
+    </view>
+  </view>
+</view>

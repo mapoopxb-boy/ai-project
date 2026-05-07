@@ -1,0 +1,44 @@
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+.message-list {
+  flex: 1;
+  padding: 30rpx;
+}
+.message-item {
+  margin-bottom: 30rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  max-width: 80%;
+}
+.doctor-msg {
+  background: #e6f7ff;
+  align-self: flex-start;
+}
+.patient-msg {
+  background: #e6ffe6;
+  align-self: flex-end;
+  text-align: right;
+}
+.msg-time {
+  font-size: 22rpx;
+  color: #999;
+  display: block;
+  margin-top: 8rpx;
+}
+.input-area {
+  padding: 20rpx;
+  background: white;
+  display: flex;
+  gap: 20rpx;
+  border-top: 1rpx solid #eee;
+}
+.input-area input {
+  flex: 1;
+  border: 1rpx solid #ddd;
+  border-radius: 40rpx;
+  padding: 20rpx;
+}

@@ -1,0 +1,22 @@
+<view class="container">
+  <view class="header">
+    <text>患者康复进度看板</text>
+    <view class="alert-badge" wx:if="{{unresolvedAlertCount > 0}}">
+      <text>未处理预警：{{unresolvedAlertCount}}</text>
+      <button size="mini" bindtap="goToAlertList">查看</button>
+    </view>
+  </view>
+
+  <view class="patient-list">
+    <block wx:for="{{patients}}" wx:key="index">
+      <view class="patient-card" bindtap="viewDetail" data-name="{{item.name}}">
+        <text class="name">{{item.name}}</text>
+        <text class="diagnosis">{{item.diagnosis}}</text>
+        <progress percent="{{item.completionRate}}" stroke-width="6" activeColor="#07c160" backgroundColor="#f0f0f0" />
+        <text class="rate">完成率：{{item.completionRate}}%</text>
+      </view>
+    </block>
+  </view>
+
+  <button class="rule-btn" bindtap="goToAlertRule">预警规则配置</button>
+</view>

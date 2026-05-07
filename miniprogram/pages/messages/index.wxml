@@ -1,0 +1,14 @@
+<view class="container">
+  <view class="message-list">
+    <block wx:for="{{messages}}" wx:key="index">
+      <view class="message-item {{item.fromDoctor ? 'doctor-msg' : 'patient-msg'}}">
+        <text class="msg-text">{{item.content}}</text>
+        <text class="msg-time">{{item.time}}</text>
+      </view>
+    </block>
+  </view>
+  <view class="input-area">
+    <input placeholder="输入内容..." bindinput="onInput" value="{{inputText}}" />
+    <button bindtap="sendMessage" size="mini">发送</button>
+  </view>
+</view>
