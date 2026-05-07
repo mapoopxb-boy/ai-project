@@ -633,6 +633,11 @@ async def upload_file(
 async def health_check():
     return {"status": "ok", "service": "ai-assistant-v2"}
 
+@app.get("/api/healthz")
+async def healthz():
+    from datetime import timezone
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 # ============== 测试接口 ==============
 @app.get("/test/news")
 async def test_news(q: str = "科技"):
