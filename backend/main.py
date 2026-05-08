@@ -638,6 +638,10 @@ async def healthz():
     from datetime import timezone
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+@app.get("/api/version")
+async def version():
+    return {"version": "2.0.0"}
+
 # ============== 测试接口 ==============
 @app.get("/test/news")
 async def test_news(q: str = "科技"):
