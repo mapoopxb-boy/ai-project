@@ -1,4 +1,5 @@
 # main.py
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,6 +15,8 @@ import requests
 import re
 from typing import Optional, List
 from datetime import datetime, timedelta
+
+from init_db import init_db
 
 # ============== 日志配置 ==============
 logging.basicConfig(level=logging.INFO)
@@ -31,8 +34,19 @@ GNEWS_BASE_URL = "https://gnews.io/api/v4"
 IMAGE_API_URL = os.environ.get("IMAGE_API_URL", "")
 IMAGE_API_KEY = os.environ.get("IMAGE_API_KEY", "")
 
+# ============== Lifespan（启动/关闭事件） ==============
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时自动初始化数据库（幂等）
+    try:
+        await init_db()
+    except Exception as e:
+        logger.warning(f"数据库初始化异常（可忽略非关键错误）: {e}")
+    yield
+
+
 # ============== FastAPI 初始化 ==============
-app = FastAPI(title="AI助手接口", version="2.0")
+app = FastAPI(title="AI助手接口", version="2.0", lifespan=lifespan)
 
 # 跨域配置
 app.add_middleware(

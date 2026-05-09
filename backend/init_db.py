@@ -103,12 +103,11 @@ async def init_db():
         print("✅ 演示数据写入完成")
 
 
-async def main():
-    try:
-        await init_db()
-    finally:
-        await engine.dispose()
-
-
+# 直接运行此脚本时执行初始化并清理引擎
 if __name__ == "__main__":
-    asyncio.run(main())
+    async def cli_main():
+        try:
+            await init_db()
+        finally:
+            await engine.dispose()
+    asyncio.run(cli_main())
