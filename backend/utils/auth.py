@@ -20,8 +20,21 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         plain_password.encode("utf-8"), hashed_password.encode("utf-8")
     )
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
+def create_access_token(
+    data: dict,
+    expires_delta: timedelta = None,
+    role: str = None,
+):
+    """
+    创建 JWT access_token。
+
+    :param data: 要编码的数据（至少包含 "sub" 字段，表示用户/患者 ID）
+    :param expires_delta: 过期时间差，默认为 7 天
+    :param role: 用户角色，如 "doctor" 或 "patient"，会自动写入 token payload
+    """
     to_encode = data.copy()
+    if role:
+        to_encode["role"] = role
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:

@@ -41,8 +41,9 @@ async def login(req: DoctorLogin, db: AsyncSession = Depends(get_db)):
         )
 
     access_token = create_access_token(
-        data={"sub": str(doctor.id), "role": "doctor"},
+        data={"sub": str(doctor.id)},
         expires_delta=timedelta(hours=8),
+        role="doctor",
     )
 
     logger.info(f"医生登录成功: id={doctor.id}, name={doctor.name}")

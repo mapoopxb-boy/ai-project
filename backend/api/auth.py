@@ -32,7 +32,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
         # 目前患者表没有密码字段，这里先模拟免密登录（开发阶段），实际应加入 password_hash
         # 为简化演示，我们假设患者登录无需密码（可后续完善）
         # 仅当手机号匹配即成功
-        token = create_access_token(data={"sub": str(user.id), "role": "patient"})
+        token = create_access_token(data={"sub": str(user.id)}, role="patient")
         return LoginResponse(code=200, token=token, role="patient", user_id=user.id, name=user.name)
     
     elif req.role == "doctor":
@@ -43,7 +43,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             raise HTTPException(status_code=401, detail="医生不存在")
         if not verify_password(req.password, user.password_hash):
             raise HTTPException(status_code=401, detail="密码错误")
-        token = create_access_token(data={"sub": str(user.id), "role": "doctor"})
+        token = create_access_token(data={"sub": str(user.id)}, role="doctor")
         return LoginResponse(code=200, token=token, role="doctor", user_id=user.id, name=user.name)
     
     else:
