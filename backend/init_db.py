@@ -7,114 +7,171 @@
 import asyncio
 import bcrypt
 from datetime import date
-
-from sqlalchemy import select
+from sqlalchemy import select, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.db import engine, Base, AsyncSessionLocal
-from models.patient import Doctor, Patient, RehabTemplate
+from models.patient import Doctor, Patient, RehabTemplate, PatientRehabPlan, DailyTask
 
 
+# ================= 自动同步缺失列 =================
+async def sync_missing_columns():
+    """
+    自动为已存在的表增加模型中新定义的列（仅添加，不删除，不修改类型）。
+    幂等，重复执行不会报错。
+    """
+    async with engine.begin() as conn:
+        def _get_existing_tables(sync_conn):
+            insp = inspect(sync_conn)
+            tables = {}
+            for tname in insp.get_table_names():
+                tables[tname] = {c['name'] for c in insp.get_columns(tname)}
+            return tables
+
+        existing_tables = await conn.run_sync(_get_existing_tables)
+
+        model_tables = {}
+        for table in Base.metadata.sorted_tables:
+            cols = {col.name for col in table.columns}
+            model_tables[table.name] = cols
+
+        for table_name, model_cols in model_tables.items():
+            if table_name not in existing_tables:
+                continue
+            existing_cols = existing_tables[table_name]
+            missing = model_cols - existing_cols
+            if not missing:
+                continue
+            for col_name in missing:
+                col_obj = next(col for col in Base.metadata.tables[table_name].columns if col.name == col_name)
+                col_type = str(col_obj.type)
+                nullable = "NULL" if col_obj.nullable else "NOT NULL"
+                sql = text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {nullable}')
+                try:
+                    await conn.execute(sql)
+                    print(f"✅ 已添加缺失列: {table_name}.{col_name}")
+                except Exception as e:
+                    print(f"⚠️ 添加列 {table_name}.{col_name} 失败: {e}")
+
+
+# ================= 演示数据插入 =================
 async def init_db():
+    # 1. 创建所有表（幂等，不会影响已有表）
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # 2. 同步缺失的列（自动增列）
+    await sync_missing_columns()
+
+    # 3. 插入演示数据（幂等）
     async with AsyncSessionLocal() as session:
-        # ---------- 1. 创建所有表（幂等） ----------
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        print("✅ 数据库表创建/已存在")
+        # ---------- 演示医生 ----------
+        result = await session.execute(select(Doctor).where(Doctor.login_name == "demo_doctor"))
+        doctor = result.scalar_one_or_none()
+        if doctor is None:
+            hashed = bcrypt.hashpw(b"123456", bcrypt.gensalt()).decode('utf-8')
+            doctor = Doctor(
+                name="演示医生",
+                department="康复科",
+                phone="13800001111",
+                login_name="demo_doctor",
+                password_hash=hashed
+            )
+            session.add(doctor)
+            await session.commit()
+            print("✅ 创建演示医生: demo_doctor / 123456")
+        else:
+            print("ℹ️ 演示医生已存在，跳过")
 
-        # ---------- 2. 检查是否已初始化 ----------
-        result = await session.execute(select(Doctor).limit(1))
-        existing_doctor = result.scalar_one_or_none()
-        if existing_doctor:
-            print("ℹ️  数据库已初始化，跳过演示数据写入")
-            return
+        # ---------- 演示患者 ----------
+        result = await session.execute(select(Patient).where(Patient.hospital_patient_id == "P2026001"))
+        patient = result.scalar_one_or_none()
+        if patient is None:
+            # 确保医生已存在
+            if doctor is None:
+                doctor = await session.execute(select(Doctor).where(Doctor.login_name == "demo_doctor"))
+                doctor = doctor.scalar_one()
+            # 生成患者密码哈希（手机号后6位 001111）
+            hashed_pwd = bcrypt.hashpw(b"001111", bcrypt.gensalt()).decode('utf-8')
+            patient = Patient(
+                hospital_patient_id="P2026001",
+                name="张明",
+                phone="13900001111",
+                department="康复科",
+                attending_doctor_id=doctor.id,
+                discharge_summary="患者因右膝关节置换术后入院，术后恢复良好，建议进行系统康复训练。",
+                surgery_date=date.today(),
+                password_hash=hashed_pwd   # 直接赋值
+            )
+            session.add(patient)
+            await session.commit()
+            print("✅ 创建演示患者: 张明")
+        else:
+            print("ℹ️ 演示患者已存在，跳过")
 
-        # ---------- 3. 演示医生 ----------
-        hashed = bcrypt.hashpw(b"123456", bcrypt.gensalt()).decode("utf-8")
-        doctor = Doctor(
-            name="演示医生",
-            department="康复科",
-            phone="13800001111",
-            login_name="demo_doctor",
-            password_hash=hashed,
-        )
-        session.add(doctor)
-        await session.flush()  # 获取 doctor.id
-        print("✅ 创建演示医生: demo_doctor / 123456")
+        # ---------- 康复模板 ----------
+        result = await session.execute(select(RehabTemplate).limit(1))
+        template = result.scalar_one_or_none()
+        if template is None:
+            template = RehabTemplate(
+                disease_category="骨科",
+                name="膝关节置换术后康复方案",
+                phases=[
+                    {"name": "早期（术后1-2周）", "duration_days": 14,
+                     "tasks": [{"type": "exercise", "name": "踝泵运动", "frequency": "每天3次"},
+                               {"type": "exercise", "name": "股四头肌等长收缩", "frequency": "每天2次"}]},
+                    {"name": "中期（术后3-6周）", "duration_days": 28,
+                     "tasks": [{"type": "exercise", "name": "直腿抬高", "frequency": "每天2次"},
+                               {"type": "exercise", "name": "坐位屈膝", "frequency": "每天2次"}]},
+                    {"name": "晚期（术后7周以上）", "duration_days": 999,
+                     "tasks": [{"type": "exercise", "name": "靠墙静蹲", "frequency": "每天1次"},
+                               {"type": "questionnaire", "name": "疼痛评分", "frequency": "每周2次"}]}
+                ],
+                is_active=True
+            )
+            session.add(template)
+            await session.commit()
+            print("✅ 创建康复模板: 膝关节置换术后康复方案")
+        else:
+            print("ℹ️ 康复模板已存在，跳过")
 
-        # ---------- 4. 演示患者 ----------
-        patient_phone = "13900001111"
-        patient_password = patient_phone[-6:]  # 默认密码：手机号后6位
-        patient_hashed = bcrypt.hashpw(
-            patient_password.encode("utf-8"),
-            bcrypt.gensalt(),
-        ).decode("utf-8")
-        patient = Patient(
-            hospital_patient_id="P2026001",
-            name="张明",
-            phone=patient_phone,
-            department="康复科",
-            attending_doctor_id=doctor.id,
-            password_hash=patient_hashed,
-            discharge_summary="患者因右膝关节置换术后入院，术后恢复良好，建议进行系统康复训练。",
-            surgery_date=date(2026, 4, 15),
-        )
-        session.add(patient)
-        await session.flush()
-        print(f"✅ 创建演示患者: {patient.name}（ID: {patient.id}）")
+        # ---------- 为患者创建康复计划（如果计划不存在） ----------
+        if patient is not None and template is not None:
+            result = await session.execute(select(PatientRehabPlan).where(PatientRehabPlan.patient_id == patient.id))
+            plan = result.scalar_one_or_none()
+            if plan is None:
+                plan = PatientRehabPlan(
+                    patient_id=patient.id,
+                    template_id=template.id,
+                    start_date=date.today(),
+                    current_phase=1,
+                    status="active"
+                )
+                session.add(plan)
+                await session.commit()
+                print("✅ 为患者张明创建康复计划")
 
-        # ---------- 5. 康复计划模板 ----------
-        template = RehabTemplate(
-            disease_category="骨科",
-            name="膝关节置换术后康复方案",
-            phases=[
-                {
-                    "name": "早期（术后1-2周）",
-                    "duration_days": 14,
-                    "tasks": [
-                        {"type": "exercise", "name": "踝泵运动", "frequency": "每日3组，每组10次"},
-                        {"type": "exercise", "name": "股四头肌等长收缩", "frequency": "每日3组，每组10次"},
-                        {"type": "medication", "name": "口服止痛药", "frequency": "遵医嘱"},
-                        {"type": "questionnaire", "name": "疼痛评分", "frequency": "每日1次"},
-                    ],
-                },
-                {
-                    "name": "中期（术后3-6周）",
-                    "duration_days": 28,
-                    "tasks": [
-                        {"type": "exercise", "name": "膝关节被动屈伸", "frequency": "每日2次，每次15分钟"},
-                        {"type": "exercise", "name": "直腿抬高训练", "frequency": "每日3组，每组8次"},
-                        {"type": "exercise", "name": "站立位重心转移", "frequency": "每日2次，每次10分钟"},
-                        {"type": "questionnaire", "name": "疼痛评分", "frequency": "每日1次"},
-                        {"type": "photo", "name": "手术伤口拍照", "frequency": "每2日1次"},
-                    ],
-                },
-                {
-                    "name": "后期（术后7-12周）",
-                    "duration_days": 42,
-                    "tasks": [
-                        {"type": "exercise", "name": "靠墙静蹲", "frequency": "每日2组，每组30秒"},
-                        {"type": "exercise", "name": "上下楼梯训练", "frequency": "每日2次，每次5组"},
-                        {"type": "exercise", "name": "步行训练", "frequency": "每日2次，每次15分钟"},
-                        {"type": "questionnaire", "name": "疼痛评分", "frequency": "每周2次"},
-                    ],
-                },
-            ],
-            is_active=True,
-        )
-        session.add(template)
-        print("✅ 创建康复计划模板: 膝关节置换术后康复方案")
+                # 生成演示每日任务（简化：只生成前3天）
+                from datetime import timedelta
+                for i in range(1, 4):
+                    task_date = date.today() + timedelta(days=i-1)
+                    task = DailyTask(
+                        plan_id=plan.id,
+                        task_date=task_date,
+                        task_type="exercise",
+                        task_content={"name": f"第{task_date.day}日康复训练", "duration_minutes": 15},
+                        status="pending"
+                    )
+                    session.add(task)
+                await session.commit()
+                print("✅ 生成演示每日任务（前3天）")
+            else:
+                print("ℹ️ 康复计划已存在，跳过")
+        else:
+            print("⚠️ 患者或模板缺失，无法创建康复计划")
 
-        # ---------- 提交 ----------
-        await session.commit()
-        print("✅ 演示数据写入完成")
+        print("🎉 数据库初始化完成")
 
 
-# 直接运行此脚本时执行初始化并清理引擎
 if __name__ == "__main__":
-    async def cli_main():
-        try:
-            await init_db()
-        finally:
-            await engine.dispose()
-    asyncio.run(cli_main())
+    asyncio.run(init_db())

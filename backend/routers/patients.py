@@ -17,6 +17,7 @@ from schemas.patient import (
     PatientProfile,
     DoctorBrief,
     RehabPlanPatient,
+    RehabPlanResponse,
     TaskContent,
     PhaseInfo,
     TaskCompleteRequest,
@@ -113,13 +114,16 @@ async def get_profile(
 # ==================== 当前康复计划 ====================
 
 
-@router.get("/rehab_plan", response_model=RehabPlanPatient)
+@router.get("/rehab_plan", response_model=RehabPlanResponse)
 async def get_rehab_plan(
     current_patient: Patient = Depends(get_current_patient),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取当前激活的康复计划详情（含模板信息和每日任务）。"""
-    # 查找当前患者的活跃康复计划
+    """
+    获取当前患者的康复计划详情（含模板信息和每日任务）。
+    有活跃计划时返回 { active: true, plan: { ... } }；
+    无活跃计划时返回 { active: false }。
+    """
     plan_stmt = (
         select(PatientRehabPlan)
         .options(selectinload(PatientRehabPlan.daily_tasks))
@@ -134,10 +138,7 @@ async def get_rehab_plan(
     plan = plan_result.scalar_one_or_none()
 
     if not plan:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="暂无激活的康复计划",
-        )
+        return RehabPlanResponse(active=False)
 
     # 获取模板信息
     tpl_stmt = select(RehabTemplate).where(RehabTemplate.id == plan.template_id)
@@ -190,7 +191,7 @@ async def get_rehab_plan(
             )
         )
 
-    return RehabPlanPatient(
+    plan_detail = RehabPlanPatient(
         id=plan.id,
         template_id=plan.template_id,
         template_name=template.name if template else None,
@@ -203,21 +204,24 @@ async def get_rehab_plan(
         tasks=tasks,
     )
 
+    return RehabPlanResponse(active=True, plan=plan_detail)
+
 
 # ==================== 每日任务 ====================
 
 
 @router.get("/daily_tasks", response_model=list[TaskContent])
 async def get_daily_tasks(
-    task_date: date = None,
+    date: date = None,
     current_patient: Patient = Depends(get_current_patient),
     db: AsyncSession = Depends(get_db),
 ):
     """
     获取今日或指定日期的待办任务列表。
-    如不传 task_date，则默认查询今天。
+    支持查询参数 ?date=YYYY-MM-DD（默认当天）。
     """
-    query_date = task_date or date.today()
+    from datetime import date as _date_type
+    query_date = date if date else _date_type.today()
     logger.info(
         f"患者 {current_patient.id} 查询 {query_date} 的每日任务"
     )
@@ -284,7 +288,7 @@ async def get_daily_tasks(
 )
 async def complete_daily_task(
     task_id: int,
-    req: TaskCompleteRequest,
+    req: TaskCompleteRequest | None = None,
     current_patient: Patient = Depends(get_current_patient),
     db: AsyncSession = Depends(get_db),
 ):
@@ -322,7 +326,7 @@ async def complete_daily_task(
     # 更新任务状态
     task.status = "done"
     task.completed_at = datetime.utcnow()
-    if req.result_data:
+    if req and req.result_data:
         task.result_data = json.dumps(req.result_data, ensure_ascii=False)
 
     await db.commit()
@@ -331,10 +335,31 @@ async def complete_daily_task(
     logger.info(
         f"患者 {current_patient.id} 完成任务 {task_id} (type={task.task_type})"
     )
+
+    # 处理 task_content 为 dict
+    task_content = task.task_content
+    if isinstance(task_content, str):
+        try:
+            task_content = json.loads(task_content)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # 处理 result_data 为 dict
+    result_data = task.result_data
+    if isinstance(result_data, str):
+        try:
+            result_data = json.loads(result_data)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     return TaskCompleteResponse(
         id=task.id,
+        task_date=task.task_date,
+        task_type=task.task_type,
+        task_content=task_content,
         status=task.status,
         completed_at=task.completed_at,
+        result_data=result_data,
         message="任务已完成",
     )
 
@@ -351,10 +376,12 @@ async def get_health_data(
     """
     获取近期康复健康数据（用于图表展示）。
     默认返回最近 30 天的数据。
+    数据来源：rehab_records（医生记录）和 daily_tasks 的 result_data（患者自评）。
     """
     since = date.today() - timedelta(days=days)
 
-    stmt = (
+    # 1. 从 rehab_records 获取数据
+    record_stmt = (
         select(RehabRecord)
         .where(
             RehabRecord.patient_id == current_patient.id,
@@ -362,19 +389,74 @@ async def get_health_data(
         )
         .order_by(RehabRecord.record_date.asc())
     )
-    result = await db.execute(stmt)
+    result = await db.execute(record_stmt)
     records = result.scalars().all()
 
-    return [
-        HealthDataPoint(
-            record_date=r.record_date.isoformat() if r.record_date else "",
-            pain_score=r.pain_score,
-            training_completion=r.training_completion,
-            blood_pressure_systolic=r.blood_pressure_systolic,
-            blood_pressure_diastolic=r.blood_pressure_diastolic,
-            blood_sugar=r.blood_sugar,
+    # 构建日期到数据的映射
+    data_map: dict[str, dict] = {}
+    for r in records:
+        day = r.record_date.isoformat() if r.record_date else ""
+        if day:
+            point = {
+                "pain_score": r.pain_score,
+                "training_completion": r.training_completion,
+                "blood_pressure_systolic": r.blood_pressure_systolic,
+                "blood_pressure_diastolic": r.blood_pressure_diastolic,
+                "blood_sugar": r.blood_sugar,
+            }
+            if day in data_map:
+                data_map[day].update(
+                    {k: v for k, v in point.items() if v is not None}
+                )
+            else:
+                data_map[day] = point
+
+    # 2. 从 daily_tasks 的 result_data 补充数据
+    plans_stmt = select(PatientRehabPlan.id).where(
+        PatientRehabPlan.patient_id == current_patient.id
+    )
+    plans_result = await db.execute(plans_stmt)
+    plan_ids = plans_result.scalars().all()
+
+    if plan_ids:
+        tasks_stmt = (
+            select(DailyTask)
+            .where(
+                DailyTask.plan_id.in_(plan_ids),
+                DailyTask.status == "done",
+                DailyTask.result_data.isnot(None),
+                DailyTask.task_date >= since,
+            )
+            .order_by(DailyTask.task_date.asc())
         )
-        for r in records
+        tasks_result = await db.execute(tasks_stmt)
+        tasks = tasks_result.scalars().all()
+
+        for t in tasks:
+            day = t.task_date.isoformat() if t.task_date else ""
+            if not day:
+                continue
+            rd = t.result_data
+            if isinstance(rd, str):
+                try:
+                    rd = json.loads(rd)
+                except (json.JSONDecodeError, TypeError):
+                    rd = None
+            if isinstance(rd, dict):
+                if day not in data_map:
+                    data_map[day] = {}
+                for key in ("pain_score", "training_completion"):
+                    # 仅当 rehab_records 未提供该字段时才补充
+                    if key in rd and data_map[day].get(key) is None:
+                        try:
+                            data_map[day][key] = float(rd[key])
+                        except (ValueError, TypeError):
+                            pass
+
+    # 按日期排序返回
+    sorted_days = sorted(data_map.keys())
+    return [
+        HealthDataPoint(record_date=day, **data_map[day]) for day in sorted_days
     ]
 
 

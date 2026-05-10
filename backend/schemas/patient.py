@@ -78,16 +78,29 @@ class RehabPlanPatient(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RehabPlanResponse(BaseModel):
+    """\n    康复计划响应。
+    有活跃计划时返回 active=true + plan 数据；
+    无活跃计划时返回 active=false。
+    """
+    active: bool
+    plan: Optional[RehabPlanPatient] = None
+
+
 class TaskCompleteRequest(BaseModel):
     """标记任务完成请求"""
     result_data: Optional[dict] = None
 
 
 class TaskCompleteResponse(BaseModel):
-    """标记任务完成响应"""
+    """标记任务完成响应（返回更新后的完整任务对象）"""
     id: int
-    status: str
+    task_date: Optional[date] = None
+    task_type: Optional[str] = None
+    task_content: Optional[Any] = None
+    status: str = "done"
     completed_at: Optional[datetime] = None
+    result_data: Optional[Any] = None
     message: str = "任务已完成"
 
 
