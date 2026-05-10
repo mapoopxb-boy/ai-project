@@ -23,11 +23,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ============== 配置 ==============
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-7bb7e871e9014526aa7da9a8adafdc8e")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    raise ValueError("未设置环境变量 DEEPSEEK_API_KEY，请在 .env 文件中配置")
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
 
 # GNews API 配置
-GNEWS_API_KEY = "3f14cf095ab0347b0184812cdf85ac6a"
+GNEWS_API_KEY = os.environ.get("GNEWS_API_KEY")
+if not GNEWS_API_KEY:
+    raise ValueError("未设置环境变量 GNEWS_API_KEY，请在 .env 文件中配置")
 GNEWS_BASE_URL = "https://gnews.io/api/v4"
 
 # 图片生成配置
