@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from init_db import init_db
 from routers.auth import router as auth_router
 from routers.doctors import router as doctors_router
+from routers.patients import router as patients_router
 from api.auth import router as old_auth_router
 
 # ============== 日志配置 ==============
@@ -54,6 +55,7 @@ app = FastAPI(title="AI助手接口", version="2.0", lifespan=lifespan)
 # 注册路由
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(doctors_router, prefix="/api/doctors")
+app.include_router(patients_router, prefix="/api/patients")
 app.include_router(old_auth_router)
 
 # 跨域配置
