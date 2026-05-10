@@ -20,19 +20,26 @@ from init_db import init_db
 from routers.auth import router as auth_router
 from routers.doctors import router as doctors_router
 from routers.patients import router as patients_router
-from api.auth import router as old_auth_router
 
 # ============== 日志配置 ==============
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ============== 配置 ==============
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "sk-7bb7e871e9014526aa7da9a8adafdc8e")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
 
+if not DEEPSEEK_API_KEY:
+    logger.warning("⚠️ DEEPSEEK_API_KEY 未设置，AI 对话、分析等功能将不可用（医患管理接口不受影响）")
+else:
+    logger.info("✅ DEEPSEEK_API_KEY 已设置")
+
 # GNews API 配置
-GNEWS_API_KEY = "3f14cf095ab0347b0184812cdf85ac6a"
-GNEWS_BASE_URL = "https://gnews.io/api/v4"
+GNEWS_API_KEY = os.environ.get("GNEWS_API_KEY", "")
+GNEWS_BASE_URL = os.environ.get("GNEWS_BASE_URL", "https://gnews.io/api/v4")
+
+if not GNEWS_API_KEY:
+    logger.warning("⚠️ GNEWS_API_KEY 未设置，新闻检索功能将不可用（医患管理接口不受影响）")
 
 # 图片生成配置
 IMAGE_API_URL = os.environ.get("IMAGE_API_URL", "")
@@ -56,7 +63,6 @@ app = FastAPI(title="AI助手接口", version="2.0", lifespan=lifespan)
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(doctors_router, prefix="/api/doctors")
 app.include_router(patients_router, prefix="/api/patients")
-app.include_router(old_auth_router)
 
 # 跨域配置
 app.add_middleware(
@@ -171,8 +177,12 @@ def detect_agent(user_input: str, file_type: str = None) -> str:
     is_news_query = any(keyword in user_input_lower for keyword in news_keywords)
     
     if is_news_query:
-        logger.info(f"检测到新闻查询: {user_input}")
-        return "news"
+        if GNEWS_API_KEY:
+            logger.info(f"检测到新闻查询: {user_input}")
+            return "news"
+        else:
+            logger.info(f"检测到新闻查询但 GNEWS_API_KEY 未配置，回退到通用对话: {user_input}")
+            return "default"
     
     # 3. 检查是否是图片生成意图
     image_keywords = ["画图", "生成图片", "帮我画", "画一张", "生成一张图",
@@ -206,6 +216,14 @@ class NewsService:
         搜索新闻
         返回: {"success": bool, "articles": list, "error": str}
         """
+        if not self.api_key:
+            logger.warning("GNEWS_API_KEY 未配置，跳过新闻检索")
+            return {
+                "success": False,
+                "articles": [],
+                "error": "GNEWS_API_KEY 未配置，新闻检索不可用"
+            }
+
         # 提取关键词
         keywords = self._extract_keywords(query)
         
@@ -376,9 +394,12 @@ async def generate_image(prompt: str, user_id: str) -> tuple:
     生成图片
     返回 (成功标志, 图片URL或错误信息)
     """
-    if IMAGE_API_KEY and IMAGE_API_URL:
-        try:
-            async with httpx.AsyncClient() as http_client:
+    if not IMAGE_API_KEY or not IMAGE_API_URL:
+        logger.warning("IMAGE_API_KEY 或 IMAGE_API_URL 未配置，图片生成不可用")
+        return False, "图片生成功能未配置（请设置 IMAGE_API_KEY 和 IMAGE_API_URL）"
+
+    try:
+        async with httpx.AsyncClient() as http_client:
                 response = await http_client.post(
                     IMAGE_API_URL,
                     headers={
@@ -397,8 +418,8 @@ async def generate_image(prompt: str, user_id: str) -> tuple:
                     image_url = data.get("output", {}).get("results", [{}])[0].get("url")
                     if image_url:
                         return True, image_url
-        except Exception as e:
-            logger.error(f"图片生成失败: {e}")
+    except Exception as e:
+        logger.error(f"图片生成失败: {e}")
     
     # 使用 Unsplash 占位图
     encoded_prompt = requests.utils.quote(prompt[:50])
@@ -675,28 +696,19 @@ async def test_news(q: str = "科技"):
 
 # ============== 启动 ==============
 if __name__ == "__main__":
-    if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY == "sk-xxxxxxxx":
-        print("⚠️  警告: 请设置正确的 DEEPSEEK_API_KEY 环境变量")
-        print("   export DEEPSEEK_API_KEY='your-real-api-key'")
-    else:
-        print("=" * 50)
-        print("✅ DeepSeek-V4 AI助手服务启动中...")
-        print("=" * 50)
-        print("📋 支持的功能:")
-        print("   1. 💬 通用对话 - default")
-        print("   2. ❤️ 情绪陪伴 - emotion")
-        print("   3. 📚 百科问答 - wiki")
-        print("   4. 🎨 创意写作 - create")
-        print("   5. 📰 实时新闻 - news (已配置GNews API)")
-        print("   6. 🖼️ 图片分析 - image_analysis")
-        print("   7. 🎬 视频分析 - video_analysis")
-        print("   8. 📄 文件分析 - file_analysis")
-        print("   9. 🎨 图片生成 - image_generate")
-        print("=" * 50)
-        print("🚀 服务地址: http://127.0.0.1:8000")
-        print("📡 接口地址: http://127.0.0.1:8000/ai-assistant")
-        print("🏥 健康检查: http://127.0.0.1:8000/health")
-        print("📰 新闻测试: http://127.0.0.1:8000/test/news?q=科技")
-        print("=" * 50)
-        
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("=" * 50)
+    print("🏥 AI助手服务启动中...")
+    print("=" * 50)
+    print("📋 功能状态:")
+    print(f"   {'✅' if DEEPSEEK_API_KEY else '❌'} AI 对话/分析 (DEEPSEEK_API_KEY)")
+    print(f"   {'✅' if GNEWS_API_KEY else '❌'} 新闻检索 (GNEWS_API_KEY)")
+    print(f"   {'✅' if IMAGE_API_KEY and IMAGE_API_URL else '❌'} 图片生成")
+    print(f"   ✅ 医患管理 API（无需外部密钥）")
+    print("=" * 50)
+    print("🚀 服务地址: http://127.0.0.1:8000")
+    print("🏥 健康检查: http://127.0.0.1:8000/health")
+    print("📡 AI接口: http://127.0.0.1:8000/ai-assistant")
+    print("📰 新闻测试: http://127.0.0.1:8000/test/news?q=科技")
+    print("=" * 50)
+    
+    uvicorn.run(app, host="0.0.0.0", port=8000)
