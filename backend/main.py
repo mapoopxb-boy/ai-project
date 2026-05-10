@@ -74,12 +74,18 @@ app.add_middleware(
 )
 
 # ============== OpenAI 客户端 ==============
-client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url=DEEPSEEK_BASE_URL,
-    timeout=httpx.Timeout(120.0, connect=10.0),
-    max_retries=0
-)
+client: OpenAI | None = None
+
+if DEEPSEEK_API_KEY:
+    client = OpenAI(
+        api_key=DEEPSEEK_API_KEY,
+        base_url=DEEPSEEK_BASE_URL,
+        timeout=httpx.Timeout(120.0, connect=10.0),
+        max_retries=0
+    )
+    logger.info("✅ OpenAI 客户端已创建（DEEPSEEK_API_KEY 已设置）")
+else:
+    logger.warning("⚠️ DEEPSEEK_API_KEY 未设置，OpenAI 客户端未创建（AI 功能不可用）")
 
 # ============== 请求模型 ==============
 class ChatRequest(BaseModel):
@@ -430,6 +436,10 @@ async def generate_image(prompt: str, user_id: str) -> tuple:
 # ============== 文件分析功能 ==============
 async def analyze_image(image_data: str, user_question: str = "") -> str:
     """分析图片内容"""
+    if client is None:
+        logger.warning("AI 服务未配置，跳过图片分析")
+        return "AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY"
+
     if not user_question:
         user_question = "请详细描述这张图片的内容，包括看到的物体、场景、颜色和可能传达的信息。"
     
@@ -449,6 +459,10 @@ async def analyze_image(image_data: str, user_question: str = "") -> str:
 
 async def analyze_video(video_data: str, user_question: str = "") -> str:
     """分析视频内容"""
+    if client is None:
+        logger.warning("AI 服务未配置，跳过视频分析")
+        return "AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY"
+
     if not user_question:
         user_question = "请分析这个视频的可能内容，包括场景、主题和相关信息。"
     
@@ -468,6 +482,10 @@ async def analyze_video(video_data: str, user_question: str = "") -> str:
 
 async def analyze_file(file_data: str, file_name: str, user_question: str = "") -> str:
     """分析文档内容"""
+    if client is None:
+        logger.warning("AI 服务未配置，跳过文件分析")
+        return "AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY"
+
     if not user_question:
         user_question = f"请分析文件'{file_name}'的内容，总结要点和关键信息。"
     
@@ -491,6 +509,10 @@ async def handle_news_query(user_input: str) -> tuple:
     处理新闻查询
     返回 (回答, 新闻数据列表)
     """
+    if client is None:
+        logger.warning("AI 服务未配置，跳过新闻处理")
+        return "AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY", []
+
     # 搜索新闻
     news_result = await news_service.search_news(user_input, days_back=3, max_results=6)
     
@@ -530,6 +552,10 @@ async def handle_news_query(user_input: str) -> tuple:
 # ============== 通用对话 ==============
 async def general_chat(user_input: str, agent_type: str) -> str:
     """通用对话"""
+    if client is None:
+        logger.warning("AI 服务未配置，跳过通用对话")
+        return "AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY"
+
     config = AGENT_CONFIGS.get(agent_type, AGENT_CONFIGS["default"])
     
     try:
@@ -552,7 +578,17 @@ async def general_chat(user_input: str, agent_type: str) -> str:
 @app.post("/ai-assistant", response_model=ChatResponse)
 async def ai_assistant(req: ChatRequest):
     start_time = time.time()
-    
+
+    # ========== AI 服务可用性检查 ==========
+    if client is None:
+        logger.warning("AI 服务未配置，拒绝 /ai-assistant 请求")
+        return ChatResponse(
+            code=503,
+            answer="AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY",
+            agent="unavailable",
+            processing_time=0.0
+        )
+
     try:
         user_input = req.user_input
         user_id = req.user_id
@@ -637,7 +673,16 @@ async def upload_file(
 ):
     """处理实际文件上传"""
     start_time = time.time()
-    
+
+    # ========== AI 服务可用性检查 ==========
+    if client is None:
+        logger.warning("AI 服务未配置，拒绝 /upload 请求")
+        return {
+            "code": 503,
+            "answer": "AI 服务未配置，请联系管理员设置 DEEPSEEK_API_KEY",
+            "agent": "unavailable"
+        }
+
     try:
         file_content = await file.read()
         file_name = file.filename
