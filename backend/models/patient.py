@@ -13,6 +13,7 @@ class Patient(Base):
     attending_doctor_id = Column(Integer, ForeignKey("doctors.id"))
     discharge_summary = Column(Text)
     surgery_date = Column(Date)
+    password_hash = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     doctor = relationship("Doctor", back_populates="patients")

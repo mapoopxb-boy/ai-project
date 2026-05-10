@@ -43,12 +43,19 @@ async def init_db():
         print("✅ 创建演示医生: demo_doctor / 123456")
 
         # ---------- 4. 演示患者 ----------
+        patient_phone = "13900001111"
+        patient_password = patient_phone[-6:]  # 默认密码：手机号后6位
+        patient_hashed = bcrypt.hashpw(
+            patient_password.encode("utf-8"),
+            bcrypt.gensalt(),
+        ).decode("utf-8")
         patient = Patient(
             hospital_patient_id="P2026001",
             name="张明",
-            phone="13900001111",
+            phone=patient_phone,
             department="康复科",
             attending_doctor_id=doctor.id,
+            password_hash=patient_hashed,
             discharge_summary="患者因右膝关节置换术后入院，术后恢复良好，建议进行系统康复训练。",
             surgery_date=date(2026, 4, 15),
         )
