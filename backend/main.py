@@ -17,6 +17,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 
 from init_db import init_db
+from routers.auth import router as auth_router
 
 # ============== 日志配置 ==============
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +48,9 @@ async def lifespan(app: FastAPI):
 
 # ============== FastAPI 初始化 ==============
 app = FastAPI(title="AI助手接口", version="2.0", lifespan=lifespan)
+
+# 注册路由
+app.include_router(auth_router, prefix="/api/auth")
 
 # 跨域配置
 app.add_middleware(

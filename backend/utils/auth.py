@@ -1,20 +1,24 @@
-import jwt
 import bcrypt
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
 import os
+
+from jose import jwt
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "your_jwt_secret_key_change_this")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """使用 bcrypt 对密码进行哈希处理"""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    """验证密码是否与哈希值匹配"""
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+    )
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
