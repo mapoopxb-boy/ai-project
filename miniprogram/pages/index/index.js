@@ -53,6 +53,31 @@ Page({
   // ========== 生命周期 ==========
   
   onLoad() {
+    // 测试登录接口
+    wx.request({
+      url: 'https://359c4e64.r7.cpolar.cn/token',
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: {
+        login_name: 'demo_doctor',
+        password: '123456'
+      },
+      success: (res) => {
+        console.log('登录响应', res.data);
+        if (res.data && res.data.access_token) {
+          wx.setStorageSync('token', res.data.access_token);
+          wx.showToast({ title: '登录成功', icon: 'success' });
+          // 可选：跳转到医生主页
+          // wx.navigateTo({ url: '/pages/doctor/home/home' });
+        } else {
+          wx.showToast({ title: '登录失败，请检查账号', icon: 'error' });
+        }
+      },
+      fail: (err) => {
+        console.error('登录请求失败', err);
+        wx.showToast({ title: '请求失败', icon: 'error' });
+      }
+    });
     this.initSession();
     this.loadInputHistory();
     

@@ -8,3 +8,14 @@ server.log
 .idea/
 __pycache__/
 *.pyc
+# 忽略小程序依赖目录
+miniprogram/node_modules/
+miniprogram/.DS_Store
+.env
+.env
+backend/package/
+backend/package/
+backend/test_patient.db
+ai-project-deploy.tar.gz
+test_frontend.html
+miniprogram-new/

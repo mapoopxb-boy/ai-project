@@ -32,6 +32,6 @@ App({
   globalData: {
     userInfo: null,
     token: null,
-    apiBaseUrl: 'http://127.0.0.1:8000'
+    apiBaseUrl: 'https://359c4e64.r7.cpolar.cn'
   }
 });
