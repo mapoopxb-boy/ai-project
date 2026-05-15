@@ -4,8 +4,10 @@ Page({
     alerts: [],
     messages: [],
     replyText: '',
-    trendData: []
+    trendData: [],
+    hasPendingPlan: false
   },
+
   onLoad(options) {
     const patientName = options.name;
     if (!patientName) {
@@ -16,7 +18,27 @@ Page({
     this.loadAlertData(patientName);
     this.loadMessages(patientName);
     this.drawTrend(patientName);
+    this.checkPendingPlans(patientName);
   },
+
+  // 检查该患者是否有待审核计划
+  checkPendingPlans(patientName) {
+    const token = wx.getStorageSync('token') || '';
+    wx.request({
+      url: 'http://127.0.0.1:8000/api/doctors/rehab_plans/pending',
+      method: 'GET',
+      header: { 'token': token },
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const plans = Array.isArray(res.data) ? res.data : [];
+          const hasPending = plans.some(p => p.patient_name === patientName);
+          this.setData({ hasPendingPlan: hasPending });
+        }
+      },
+      fail: () => {}
+    });
+  },
+
   loadPatientData(patientName) {
     const patients = [
       { name: '张明', diagnosis: '右膝关节置换术后', postOpDays: 7 },
@@ -26,16 +48,19 @@ Page({
     const patient = patients.find(p => p.name === patientName);
     this.setData({ patient });
   },
+
   loadAlertData(patientName) {
     const key = `alerts_${patientName}`;
     const alerts = wx.getStorageSync(key) || [];
     this.setData({ alerts });
   },
+
   loadMessages(patientName) {
     const key = `messages_${patientName}`;
     const messages = wx.getStorageSync(key) || [];
     this.setData({ messages });
   },
+
   drawTrend(patientName) {
     const history = wx.getStorageSync(`history_${patientName}`) || [];
     if (history.length === 0) {
@@ -51,6 +76,7 @@ Page({
       this.drawLineChart(history);
     }
   },
+
   drawLineChart(history) {
     const ctx = wx.createCanvasContext('trendCanvas');
     const width = 300;
@@ -67,6 +93,7 @@ Page({
     ctx.stroke();
     ctx.draw();
   },
+
   resolveAlert(e) {
     const id = e.currentTarget.dataset.id;
     const patientName = this.data.patient.name;
@@ -80,9 +107,11 @@ Page({
     this.setData({ alerts });
     wx.showToast({ title: '已标记处理', icon: 'success' });
   },
+
   onReplyInput(e) {
     this.setData({ replyText: e.detail.value });
   },
+
   sendReply() {
     const content = this.data.replyText.trim();
     if (!content) return;
@@ -97,5 +126,9 @@ Page({
     wx.setStorageSync(key, messages);
     this.setData({ messages, replyText: '' });
     wx.showToast({ title: '已发送', icon: 'success' });
+  },
+
+  goToReviewPlans() {
+    wx.navigateTo({ url: '/pages/doctor/review-plans/review-plans' });
   }
 });

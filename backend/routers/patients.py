@@ -130,6 +130,7 @@ async def get_rehab_plan(
         .where(
             PatientRehabPlan.patient_id == current_patient.id,
             PatientRehabPlan.status == "active",
+            PatientRehabPlan.review_status == "approved",
         )
         .order_by(PatientRehabPlan.start_date.desc())
         .limit(1)

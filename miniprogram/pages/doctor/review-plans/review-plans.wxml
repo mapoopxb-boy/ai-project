@@ -1,0 +1,52 @@
+<view class="page-review-plans">
+  <view class="page-header">
+    <text class="page-title">待审核康复计划</text>
+    <text class="page-count" wx:if="{{plans.length > 0}}">共 {{plans.length}} 条</text>
+  </view>
+
+  <view class="plan-list" wx:if="{{plans.length > 0}}">
+    <view class="plan-card" wx:for="{{plans}}" wx:key="id">
+      <view class="plan-header">
+        <view class="patient-name">{{item.patient_name || '未知患者'}}</view>
+        <view class="plan-badge pending">待审核</view>
+      </view>
+      <view class="plan-body">
+        <view class="plan-row" wx:if="{{item.patient_phone}}">
+          <text class="plan-label">电话</text>
+          <text class="plan-value">{{item.patient_phone}}</text>
+        </view>
+        <view class="plan-row" wx:if="{{item.plan_name}}">
+          <text class="plan-label">计划名称</text>
+          <text class="plan-value">{{item.plan_name}}</text>
+        </view>
+        <view class="plan-row">
+          <text class="plan-label">开始日期</text>
+          <text class="plan-value">{{item.start_date || '未知'}}</text>
+        </view>
+      </view>
+      <view class="plan-actions">
+        <button class="btn-approve" bindtap="onApprove" data-id="{{item.id}}" data-name="{{item.patient_name}}">批准</button>
+        <button class="btn-reject" bindtap="onReject" data-id="{{item.id}}" data-name="{{item.patient_name}}">拒绝</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <view class="empty-icon">✅</view>
+    <text class="empty-text">暂有待审核计划</text>
+  </view>
+
+  <!-- 拒绝原因弹窗 -->
+  <view class="modal-mask {{showRejectModal ? 'show' : ''}}" bindtap="closeRejectModal"></view>
+  <view class="modal-dialog {{showRejectModal ? 'show' : ''}}">
+    <view class="modal-title">驳回计划</view>
+    <view class="modal-body">
+      <text class="modal-hint">请输入驳回原因：</text>
+      <textarea class="modal-textarea" placeholder="请填写驳回原因..." value="{{rejectReason}}" bindinput="onRejectReasonInput" />
+    </view>
+    <view class="modal-actions">
+      <button class="modal-btn cancel" bindtap="closeRejectModal">取消</button>
+      <button class="modal-btn confirm" bindtap="confirmReject">确认驳回</button>
+    </view>
+  </view>
+</view>

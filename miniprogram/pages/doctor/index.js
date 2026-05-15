@@ -48,6 +48,10 @@ Page({
     wx.navigateTo({ url: '/pages/doctor/alertList' });
   },
 
+  goToReviewPlans() {
+    wx.navigateTo({ url: '/pages/doctor/review-plans/review-plans' });
+  },
+
   goToAlertRule() {
     wx.navigateTo({ url: '/pages/doctor/alertRule' });
   }

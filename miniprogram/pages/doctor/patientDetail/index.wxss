@@ -9,6 +9,51 @@
   padding: 30rpx;
   margin-bottom: 30rpx;
 }
+.pending-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff8e1;
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+  border-radius: 20rpx;
+  border: 2rpx solid #ffe082;
+}
+
+.pending-banner:active {
+  background: #fff3cd;
+}
+
+.pending-icon {
+  font-size: 36rpx;
+  flex-shrink: 0;
+}
+
+.pending-text {
+  flex: 1;
+}
+
+.pending-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #e67e22;
+  display: block;
+}
+
+.pending-desc {
+  font-size: 24rpx;
+  color: #b8860b;
+  display: block;
+  margin-top: 4rpx;
+}
+
+.pending-action {
+  font-size: 26rpx;
+  color: #e67e22;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
 .name {
   font-size: 40rpx;
   font-weight: bold;

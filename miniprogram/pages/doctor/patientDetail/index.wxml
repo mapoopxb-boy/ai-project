@@ -6,6 +6,16 @@
     <text class="postop">术后第{{patient.postOpDays}}天</text>
   </view>
 
+  <!-- 待审核计划提示 -->
+  <view class="pending-banner" wx:if="{{hasPendingPlan}}" bindtap="goToReviewPlans">
+    <view class="pending-icon">⏳</view>
+    <view class="pending-text">
+      <text class="pending-title">有待审核的康复计划</text>
+      <text class="pending-desc">AI 已自动生成计划，等待您审核</text>
+    </view>
+    <view class="pending-action">去审核 ›</view>
+  </view>
+
   <!-- 康复完成率趋势图（简易折线图） -->
   <view class="chart-section">
     <text class="section-title">康复完成率趋势</text>
