@@ -19,8 +19,14 @@ async def sync_missing_columns():
     """
     自动为已存在的表增加模型中新定义的列（仅添加，不删除，不修改类型）。
     幂等，重复执行不会报错。
+    兼容 PostgreSQL 和 SQLite。
     """
+    from sqlalchemy.dialects import sqlite, postgresql
+
     async with engine.begin() as conn:
+        # 获取当前数据库连接的方言
+        dialect = conn.dialect
+
         def _get_existing_tables(sync_conn):
             insp = inspect(sync_conn)
             tables = {}
@@ -42,14 +48,16 @@ async def sync_missing_columns():
             missing = model_cols - existing_cols
             if not missing:
                 continue
-            for col_name in missing:
+            for col_name in sorted(missing):
                 col_obj = next(col for col in Base.metadata.tables[table_name].columns if col.name == col_name)
-                col_type = str(col_obj.type)
-                nullable = "NULL" if col_obj.nullable else "NOT NULL"
-                sql = text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type} {nullable}')
+                # 根据数据库方言编译类型字符串
+                col_type_str = col_obj.type.compile(dialect=dialect)
+                # SQLite 不支持 ALTER TABLE ADD COLUMN 时指定 NOT NULL（除非有默认值）
+                # 所有新增列都设为 NULL 以避免兼容性问题
+                sql = text(f'ALTER TABLE "{table_name}" ADD COLUMN "{col_name}" {col_type_str} NULL')
                 try:
                     await conn.execute(sql)
-                    print(f"✅ 已添加缺失列: {table_name}.{col_name}")
+                    print(f"✅ 已添加缺失列: {table_name}.{col_name} ({col_type_str})")
                 except Exception as e:
                     print(f"⚠️ 添加列 {table_name}.{col_name} 失败: {e}")
 
