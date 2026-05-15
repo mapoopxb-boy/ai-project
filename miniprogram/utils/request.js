@@ -1,11 +1,18 @@
 // utils/request.js
 const baseUrl = "http://127.0.0.1:8000";
 
+/**
+ * 发起 HTTP 请求
+ * @param {string} url - 请求路径
+ * @param {string} method - GET/POST/PUT/DELETE
+ * @param {object} data - 请求体数据
+ * @returns {Promise<any>}
+ */
 const request = (url, method = "GET", data = {}) => {
   return new Promise((resolve, reject) => {
     let token = wx.getStorageSync("token") || "";
-    console.log("当前token：", token);
     console.log("请求地址：", baseUrl + url);
+    console.log("请求方法：", method);
     console.log("请求参数：", data);
 
     wx.request({
@@ -34,12 +41,22 @@ const request = (url, method = "GET", data = {}) => {
   });
 };
 
+// 封装通用 API 调用
+const api = {
+  get: (url, data = {}) => request(url, "GET", data),
+  post: (url, data = {}) => request(url, "POST", data),
+  put: (url, data = {}) => request(url, "PUT", data),
+  del: (url, data = {}) => request(url, "DELETE", data),
+};
+
 module.exports = {
-  // aiChat 函数：agentType 默认值为 "auto"，实现自动路由
+  // 原始 request 函数（保留兼容）
+  request,
+  // 通用 API 对象
+  api,
+  // aiChat 函数
   aiChat: (prompt, userId, agentType = "auto") => {
     if (!userId) userId = "test_user";
-    console.log("发送请求 - agentType:", agentType);
-    console.log("发送请求 - prompt:", prompt);
     return request("/ai-assistant", "POST", {
       user_input: prompt,
       user_id: userId,

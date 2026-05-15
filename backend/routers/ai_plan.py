@@ -11,8 +11,9 @@ import os
 import logging
 
 from database.db import get_db
-from models import Doctor, Patient, PatientRehabPlan
+from models import Doctor, Patient, PatientRehabPlan, RehabTemplate, DailyTask
 from api.dependencies import get_current_doctor
+from utils.rehab import generate_tasks_for_plan
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,7 @@ _client: OpenAI | None = None
 
 
 def get_ai_client() -> OpenAI:
-    """
-    获取或创建 OpenAI 客户端（与 main.py 使用相同的配置）。
-    首次调用时初始化，复用单例。
-    """
+    """获取或创建 OpenAI 客户端（与 main.py 使用相同的配置）。"""
     global _client
     if _client is not None:
         return _client
@@ -61,6 +59,39 @@ class AutoGenPlanResponse(BaseModel):
     source: str = "auto_generate"
     review_status: Optional[str] = "pending"
     phases: Optional[Any] = None
+
+    model_config = {"from_attributes": True}
+
+
+class PendingPlanItem(BaseModel):
+    """待审核计划列表项"""
+    id: int
+    patient_id: int
+    patient_name: Optional[str] = None
+    patient_phone: Optional[str] = None
+    plan_name: Optional[str] = None
+    start_date: Optional[date] = None
+    source: Optional[str] = None
+    review_status: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ReviewRequest(BaseModel):
+    """审核请求"""
+    action: str  # "approve" or "reject"
+    reason: Optional[str] = None
+
+
+class ReviewResponse(BaseModel):
+    """审核响应"""
+    id: int
+    patient_id: int
+    review_status: str
+    review_comment: Optional[str] = None
+    status: str
+    message: str
 
     model_config = {"from_attributes": True}
 
@@ -107,10 +138,6 @@ async def auto_generate_plan(
 
     # ── 3. 构建 Prompt ──
     age_info = ""
-    # Patient 模型无 age 字段，后续如有可在此补充
-    # if hasattr(patient, "age") and patient.age:
-    #     age_info = f"- 年龄：{patient.age}"
-
     surgery_date_str = surgery_date.isoformat() if surgery_date else "（未提供）"
 
     prompt = (
@@ -167,7 +194,6 @@ async def auto_generate_plan(
 
     # ── 5. 解析 JSON ──
     try:
-        # 清理可能的 markdown 代码块包裹
         cleaned = raw_content.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
@@ -193,10 +219,20 @@ async def auto_generate_plan(
             detail="AI 生成的计划中没有包含康复阶段",
         )
 
-    # ── 6. 创建 PatientRehabPlan 记录 ──
+    # ── 6. 创建 RehabTemplate 保存生成的 phases ──
+    template = RehabTemplate(
+        disease_category="自动生成",
+        name=plan_name,
+        phases=phases,
+        is_active=False,
+    )
+    db.add(template)
+    await db.flush()
+
+    # ── 7. 创建 PatientRehabPlan 记录 ──
     new_plan = PatientRehabPlan(
         patient_id=patient_id,
-        template_id=None,
+        template_id=template.id,
         start_date=date.today(),
         current_phase=0,
         status="active",
@@ -224,3 +260,134 @@ async def auto_generate_plan(
         review_status="pending",
         phases=phases,
     )
+
+
+# ==================== 审核管理 ====================
+
+
+@router.get(
+    "/rehab_plans/pending",
+    response_model=list[PendingPlanItem],
+)
+async def list_pending_plans(
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    获取当前医生所有患者的待审核计划（review_status='pending'）。
+    关联患者姓名和电话。
+    """
+    stmt = (
+        select(PatientRehabPlan, Patient.name, Patient.phone, RehabTemplate.name)
+        .join(Patient, PatientRehabPlan.patient_id == Patient.id)
+        .outerjoin(RehabTemplate, PatientRehabPlan.template_id == RehabTemplate.id)
+        .where(
+            Patient.attending_doctor_id == current_doctor.id,
+            PatientRehabPlan.review_status == "pending",
+            PatientRehabPlan.source == "auto_generate",
+        )
+        .order_by(PatientRehabPlan.start_date.desc())
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    items = []
+    for plan, patient_name, patient_phone, tpl_name in rows:
+        items.append(PendingPlanItem(
+            id=plan.id,
+            patient_id=plan.patient_id,
+            patient_name=patient_name,
+            patient_phone=patient_phone,
+            plan_name=tpl_name,
+            start_date=plan.start_date,
+            source=plan.source,
+            review_status=plan.review_status,
+            created_at=plan.id,
+        ))
+
+    return items
+
+
+@router.put(
+    "/rehab_plans/{plan_id}/review",
+    response_model=ReviewResponse,
+)
+async def review_plan(
+    plan_id: int,
+    req: ReviewRequest,
+    current_doctor: Doctor = Depends(get_current_doctor),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    审核康复计划。
+
+    - action='approve': review_status → approved，自动生成每日任务
+    - action='reject':  review_status → rejected，记录原因
+    """
+    # 验证计划属于当前医生的某个患者
+    stmt = (
+        select(PatientRehabPlan)
+        .join(Patient, PatientRehabPlan.patient_id == Patient.id)
+        .where(
+            PatientRehabPlan.id == plan_id,
+            Patient.attending_doctor_id == current_doctor.id,
+        )
+    )
+    result = await db.execute(stmt)
+    plan = result.scalar_one_or_none()
+
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="康复计划不存在或非当前医生负责",
+        )
+
+    if req.action == "approve":
+        plan.review_status = "approved"
+        plan.review_comment = req.reason
+        await db.commit()
+
+        # 生成每日任务
+        try:
+            await generate_tasks_for_plan(plan.id)
+            logger.info(f"✅ 计划 {plan_id} 审核通过，已生成每日任务")
+        except Exception as e:
+            logger.error(f"❌ 计划 {plan_id} 生成每日任务失败: {e}")
+            return ReviewResponse(
+                id=plan.id,
+                patient_id=plan.patient_id,
+                review_status="approved",
+                review_comment=req.reason,
+                status=plan.status,
+                message=f"审核通过，但生成每日任务失败: {str(e)}",
+            )
+
+        return ReviewResponse(
+            id=plan.id,
+            patient_id=plan.patient_id,
+            review_status="approved",
+            review_comment=req.reason,
+            status=plan.status,
+            message="审核通过，每日任务已生成",
+        )
+
+    elif req.action == "reject":
+        plan.review_status = "rejected"
+        plan.review_comment = req.reason or "未通过审核"
+        plan.status = "paused"
+        await db.commit()
+
+        return ReviewResponse(
+            id=plan.id,
+            patient_id=plan.patient_id,
+            review_status="rejected",
+            review_comment=req.reason,
+            status="paused",
+            message="计划已驳回",
+        )
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="action 必须是 'approve' 或 'reject'",
+        )

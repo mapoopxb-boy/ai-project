@@ -18,5 +18,6 @@
     </block>
   </view>
 
+  <button class="rule-btn" bindtap="goToReviewPlans">待审核计划</button>
   <button class="rule-btn" bindtap="goToAlertRule">预警规则配置</button>
 </view>
