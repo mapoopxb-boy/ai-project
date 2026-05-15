@@ -50,6 +50,10 @@ class PatientRehabPlan(Base):
     start_date = Column(Date)
     current_phase = Column(Integer, default=0)
     status = Column(String(20), default="active")   # active, completed, paused
+    source = Column(String(30), nullable=True, default=None)  # manual, auto_generate, template
+    review_status = Column(String(20), nullable=True, default=None)  # pending, approved, rejected
+    review_comment = Column(Text, nullable=True, default=None)
+    auto_gen_prompt = Column(Text, nullable=True, default=None)
 
     patient = relationship("Patient", back_populates="rehab_plans")
     daily_tasks = relationship("DailyTask", back_populates="plan")
@@ -64,6 +68,8 @@ class DailyTask(Base):
     status = Column(String(20), default="pending")  # pending, done, skipped
     completed_at = Column(DateTime, nullable=True)
     result_data = Column(JSON, nullable=True)
+    source = Column(String(30), nullable=True, default=None)  # template, auto_generate, manual
+    review_status = Column(String(20), nullable=True, default=None)  # pending, approved, rejected
 
     plan = relationship("PatientRehabPlan", back_populates="daily_tasks")
 
